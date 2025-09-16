@@ -14,7 +14,7 @@ function App() {
   }
 
   return (
-    <div>
+    <div className="flex flex-col justify-center items-center h-screen">
       <h1>Players</h1>
       <button onClick={fetchPlayers}>Fetch Players</button>
       <ul>
