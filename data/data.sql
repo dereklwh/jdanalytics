@@ -1,0 +1,23 @@
+CREATE TABLE team_stats (
+    id SERIAL PRIMARY KEY,
+    team_id INTEGER NOT NULL,
+    season_id INTEGER NOT NULL,
+    team_full_name VARCHAR(100) NOT NULL,
+    games_played INTEGER,
+    wins INTEGER,
+    losses INTEGER,
+    ot_losses INTEGER,
+    points INTEGER,
+    goals_for INTEGER,
+    goals_against INTEGER,
+    goals_for_per_game FLOAT,
+    goals_against_per_game FLOAT,
+    shots_for_per_game FLOAT,
+    shots_against_per_game FLOAT,
+    power_play_pct FLOAT,
+    penalty_kill_pct FLOAT,
+    faceoff_win_pct FLOAT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (team_id, season_id)
+);
