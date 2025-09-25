@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient'
 import { useState } from 'react'
 import { FaSearch } from "react-icons/fa";
+import Nav from './components/nav';
 
 function App() {
   const [players, setPlayers] = useState([])
@@ -25,7 +26,8 @@ function App() {
   );
 
   return (
-    <div className="flex flex-col items-center w-6xl mx-auto p-4">
+    <div className="flex flex-col items-center max-w-6xl mx-auto p-4">
+      <Nav/>
       <h1 className='mb-6'>Players</h1>
       <button onClick={fetchPlayers}>Fetch Players</button>
       { players.length > 0 ? 
