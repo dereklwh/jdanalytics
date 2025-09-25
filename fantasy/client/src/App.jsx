@@ -51,11 +51,11 @@ function App() {
 
       <div className='grid grid-cols-5 gap-4 mt-4'>
         {filteredNames.map((player) => (
-          <div key={player.id} className='flex flex-col items-center border rounded hover:bg-indigo-200 duration-400'>
+          <div key={player.id} className='flex flex-col items-center rounded-lg border-1 border-gray-300 hover:bg-indigo-200 duration-400'>
             <p>{player.first_name} {player['Last Name']}</p>
             <img src={player.Headshot} alt={`${player.first_name} ${player['Last Name']}`} />
-            <div className='p-2 items-center bg-gray-300 w-full'>
-              <p className='font-bold'>Career Stats</p>
+            <div className='p-2 items-center bg-gray-100 w-full rounded-b-lg text-sm text-gray-600'>
+              <p className='font-bold text-black'>Career Stats</p>
               <p>Games Played: {player['Games Played']}</p>
               <p>Goals: {player.Goals}</p>
               <p>Assists: {player.Assists}</p>

@@ -1,11 +1,11 @@
 export default function Nav() {
     return (
         <nav className="w-full top-0">
-            <div className='flex h-16'>
+            <div className='flex content-center'>
                 {/* get logo */}
-                <h1 className='text-l'>
+                <p className='text-4xl font-bold m-4'>
                     jdanalytics
-                </h1>
+                </p>
             </div>
         </nav>
 
