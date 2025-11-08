@@ -2,7 +2,7 @@
 
 ## Tech Stack
 - **Frontend:** React + Vite
-- **Backend:** Java Spring Boot
+- **Backend:** FastAPI
 - **Analytics and Data:** Python
 - **Database:** Supabase (Postgres)
 
