@@ -10,6 +10,10 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  const [page, setPage] = useState(1)
+  const [limit] = useState(20)
+  const [total, setTotal] = useState(0)
+
   // small debounce helper
   const debounce = useMemo(() => {
     let t
@@ -19,17 +23,23 @@ export default function App() {
     }
   }, [])
 
-  const fetchPlayers = async (q = '') => {
+  const fetchPlayers = async (q = '', pageNum=1) => {
     try {
       setLoading(true)
       setError(null)
-      const url = q
-        ? `${API_BASE}/players?q=${encodeURIComponent(q)}`
-        : `${API_BASE}/players`
-      const res = await fetch(url)
+
+      const params = new URLSearchParams({
+        q,
+        page: pageNum,
+        limit
+      }
+      )
+      const res = await fetch(`${API_BASE}/players?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
       const data = await res.json()
-      setPlayers(data)
+      setPlayers(data.data)
+      setTotal(data.total)
     } catch (e) {
       console.error('Error fetching players:', e)
       setError('Failed to load players')
@@ -38,11 +48,11 @@ export default function App() {
     }
   }
 
-  useEffect(() => { fetchPlayers() }, [])
+  useEffect(() => { fetchPlayers(searchText, page) }, [page])
 
   // server side searching with debounce
   useEffect(() => {
-    debounce(() => fetchPlayers(searchText), 250)
+    debounce(() => fetchPlayers(searchText, 1), 250)
   }, [searchText, debounce])
 
   return (
@@ -95,6 +105,29 @@ export default function App() {
           </div>
         ))}
       </div>
+      {total > limit && (
+        <div className="flex items-center gap-4 mt-8">
+          <button
+            disabled={page === 1 || loading}
+            onClick={() => setPage(p => p - 1)}
+            className="px-4 py-2 border rounded disabled:opacity-50"
+          >
+            Prev
+          </button>
+
+          <span className="text-sm text-gray-600">
+            Page {page} of {Math.ceil(total / limit)}
+          </span>
+
+          <button
+            disabled={page >= Math.ceil(total / limit) || loading}
+            onClick={() => setPage(p => p + 1)}
+            className="px-4 py-2 border rounded disabled:opacity-50"
+          >
+            Next
+          </button>
+        </div>
+      )}
     </div>
   )
 }
