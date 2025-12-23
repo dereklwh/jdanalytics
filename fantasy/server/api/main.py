@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from typing import List, Dict, Any
 from .cache import CACHE, refresher_loop, refresh_once
+from .supa import supa
+
+client = supa()
 
 async def app_lifespan(app: FastAPI):
     await refresh_once()
@@ -54,3 +57,19 @@ def players(q: str = Query(default=""),
         "limit": limit,
         "total": total
     }
+
+@app.get("/standings")
+def standings() -> Dict[str, Any]:
+    response = (
+        client
+        .table("team_stats")
+        .select("*")
+        .eq("season_id", 20252026)
+        .order("points", desc=True)
+        .execute()
+    )
+    
+    return {
+        "standings": response.data
+    }
+
