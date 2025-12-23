@@ -9,6 +9,7 @@ on:
 jobs:
   update-team-stats:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - name: Checkout repo
@@ -26,7 +27,7 @@ jobs:
 
       - name: Run pipeline
         working-directory: data
-        run: python pipeline.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python pipeline.py
