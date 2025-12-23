@@ -71,6 +71,30 @@ export default function App() {
         <FaSearch className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-500" />
       </div>
 
+      <div className="flex gap-4 mt-4 w-full sm:w-2/3 lg:w-1/2">
+        <select
+          // implement onChange handler later and populate positions dynamically
+          className="border p-2 rounded w-1/2"
+        >
+          <option value="">All Positions</option>
+          <option value="C">Center</option>
+          <option value="LW">Left Wing</option>
+          <option value="RW">Right Wing</option>
+          <option value="D">Defense</option>
+          <option value="G">Goalie</option>
+        </select>
+
+        <select
+          // implement onChange handler later and populate teams dynamically
+          className="border p-2 rounded w-1/2"
+        >
+          <option value="">All Teams</option>
+          <option value="VAN">VAN</option>
+          <option value="EDM">EDM</option>
+          <option value="TOR">TOR</option>
+        </select>
+      </div>
+
       {loading && <p className="mt-4 text-gray-500">Loading…</p>}
       {error && <p className="mt-4 text-red-600">{error}</p>}
 
