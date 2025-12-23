@@ -22,9 +22,10 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r data/requirements.txt
 
       - name: Run pipeline
+        working-directory: data
         run: python pipeline.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
