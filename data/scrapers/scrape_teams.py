@@ -7,7 +7,7 @@ RAW_DIR.mkdir(exist_ok=True)
 
 # Scrape NHL teams data and save to a JSON file
 def scrape_teams():
-    url = "https://api.nhle.com/stats/rest/en/team/summary?cayenneExp=seasonId=20242025"
+    url = "https://api.nhle.com/stats/rest/en/team/summary?cayenneExp=seasonId=20252026"
     
     response = requests.get(url)
     data = response.json()
