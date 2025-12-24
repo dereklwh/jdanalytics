@@ -3,7 +3,7 @@ name: Update NHL Tables on Supabase
 on:
   schedule:
     # Every day
-    - cron: "0 3 * * *"
+    - cron: "0 11 * * *"
   workflow_dispatch: # manual trigger
 
 jobs:
