@@ -66,9 +66,9 @@ def standings() -> Dict[str, Any]:
         .select("*")
         .eq("season_id", 20252026)
         .order("points", desc=True)
+        .order("goals_for", desc=True)
         .execute()
     )
-    
     return {
         "standings": response.data
     }
