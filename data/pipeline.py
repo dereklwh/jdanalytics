@@ -36,6 +36,20 @@ class TeamStats(BaseModel):
     faceoff_win_pct: float
     team_full_name: str
 
+class PlayerStats(BaseModel):
+    player_id: int
+    season_id: int
+    team_id: int
+    games_played: int
+    goals: int
+    assists: int
+    points: int
+    plus_minus: int
+    penalty_minutes: int
+    shots_on_goal: int
+    shooting_percentage: float
+    time_on_ice_per_game: float
+
 """ 
 Transform scraped data into validated list of dicts.
 Input: list of dicts from scrape_teams
