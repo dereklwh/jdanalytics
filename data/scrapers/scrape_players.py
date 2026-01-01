@@ -121,9 +121,7 @@ def scrapeAllPlayerIds(team_dict):
 
     return player_ids
 
-
-
-if __name__ == "__main__":
+def scrape_players():
     ids = scrapeAllPlayerIds(team_dict=scrapeTeamIds())
 
     print(f"Total Player IDs scraped: {len(ids)}")
@@ -134,4 +132,10 @@ if __name__ == "__main__":
         player_data = scrapePlayer(playerId=player_id, key=None)
         all_players_data.append(player_data)
     
-    pd.json_normalize(all_players_data).to_csv(r'../raw/all_players_data.csv', index=False)
+    # pd.json_normalize(all_players_data).to_csv(r'../raw/all_players_data.csv', index=False)
+    return all_players_data
+
+
+
+if __name__ == "__main__":
+    scrape_players()
