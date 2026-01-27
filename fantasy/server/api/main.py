@@ -35,15 +35,33 @@ def health():
 @app.get("/players")
 def players(q: str = Query(default=""),
             page: int = Query(default=1, ge=1),
-            limit: int = Query(default=20, ge=1)
+            limit: int = Query(default=20, ge=1),
+            position: str = Query(default=""),
+            team: str = Query(default=""),
+            sort_by: str = Query(default="points"),
+            sort_order: str = Query(default="desc")
             ) -> Dict[str, Any]:
-    print(CACHE)
+    filtered = CACHE
+
+    # search by name
     if q:
         ql = q.lower()
-        filtered = [p for p in CACHE if ql in p["firstName"].lower() or ql in p["lastName"].lower()]
-    else:
-        filtered = CACHE
-    
+        filtered = [p for p in filtered if ql in p["firstName"].lower() or ql in p["lastName"].lower()]
+
+    # filter by position
+    if position:
+        filtered = [p for p in filtered if p.get("position", "").upper() == position.upper()]
+
+    # filter by team
+    if team:
+        filtered = [p for p in filtered if p.get("teamAbbr", "").upper() == team.upper()]
+
+    # sorting
+    valid_sort_fields = ["points", "goals", "assists", "gamesPlayed", "firstName", "lastName"]
+    if sort_by in valid_sort_fields:
+        reverse = sort_order.lower() == "desc"
+        filtered = sorted(filtered, key=lambda p: p.get(sort_by) or 0, reverse=reverse)
+
     total = len(filtered)
 
     # pagination
@@ -57,6 +75,17 @@ def players(q: str = Query(default=""),
         "limit": limit,
         "total": total
     }
+
+
+@app.get("/teams")
+def teams() -> Dict[str, Any]:
+    """Return unique team abbreviations from cached players."""
+    team_set = set()
+    for p in CACHE:
+        abbr = p.get("teamAbbr")
+        if abbr:
+            team_set.add(abbr)
+    return {"teams": sorted(team_set)}
 
 @app.get("/standings")
 def standings() -> Dict[str, Any]:

@@ -4,6 +4,23 @@ import Nav from '../components/nav'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
+const POSITIONS = [
+  { value: '', label: 'All Positions' },
+  { value: 'C', label: 'Center' },
+  { value: 'L', label: 'Left Wing' },
+  { value: 'R', label: 'Right Wing' },
+  { value: 'D', label: 'Defense' },
+  { value: 'G', label: 'Goalie' },
+]
+
+const SORT_OPTIONS = [
+  { value: 'points', label: 'Points' },
+  { value: 'goals', label: 'Goals' },
+  { value: 'assists', label: 'Assists' },
+  { value: 'gamesPlayed', label: 'Games Played' },
+  { value: 'firstName', label: 'Name' },
+]
+
 export default function Players() {
   const [players, setPlayers] = useState([])
   const [searchText, setSearchText] = useState('')
@@ -14,6 +31,13 @@ export default function Players() {
   const [limit] = useState(20)
   const [total, setTotal] = useState(0)
 
+  // Filter and sort state
+  const [position, setPosition] = useState('')
+  const [team, setTeam] = useState('')
+  const [sortBy, setSortBy] = useState('points')
+  const [sortOrder, setSortOrder] = useState('desc')
+  const [teams, setTeams] = useState([])
+
   // small debounce helper
   const debounce = useMemo(() => {
     let t
@@ -23,17 +47,20 @@ export default function Players() {
     }
   }, [])
 
-  const fetchPlayers = async (q = '', pageNum=1) => {
+  const fetchPlayers = async (pageNum = 1) => {
     try {
       setLoading(true)
       setError(null)
 
       const params = new URLSearchParams({
-        q,
+        q: searchText,
         page: pageNum,
-        limit
-      }
-      )
+        limit,
+        position,
+        team,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      })
       const res = await fetch(`${API_BASE}/players?${params}`)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
@@ -48,12 +75,34 @@ export default function Players() {
     }
   }
 
-  useEffect(() => { fetchPlayers(searchText, page) }, [page])
-
-  // server side searching with debounce
+  // Fetch teams list on mount
   useEffect(() => {
-    debounce(() => fetchPlayers(searchText, 1), 250)
-  }, [searchText, debounce])
+    const fetchTeams = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/teams`)
+        if (res.ok) {
+          const data = await res.json()
+          setTeams(data.teams || [])
+        }
+      } catch (e) {
+        console.error('Error fetching teams:', e)
+      }
+    }
+    fetchTeams()
+  }, [])
+
+  // Fetch players when page changes
+  useEffect(() => {
+    fetchPlayers(page)
+  }, [page])
+
+  // Reset to page 1 and fetch when filters/sort/search change
+  useEffect(() => {
+    debounce(() => {
+      setPage(1)
+      fetchPlayers(1)
+    }, 250)
+  }, [searchText, position, team, sortBy, sortOrder, debounce])
 
   return (
     <div className="flex flex-col items-center max-w-6xl mx-auto p-4">
@@ -71,28 +120,51 @@ export default function Players() {
         <FaSearch className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-500" />
       </div>
 
-      <div className="flex gap-4 mt-4 w-full sm:w-2/3 lg:w-1/2">
+      <div className="flex flex-wrap gap-4 mt-4 w-full sm:w-2/3 lg:w-1/2">
         <select
-          // implement onChange handler later and populate positions dynamically
-          className="border p-2 rounded w-1/2"
+          value={position}
+          onChange={(e) => setPosition(e.target.value)}
+          className="border p-2 rounded flex-1 min-w-[120px]"
         >
-          <option value="">All Positions</option>
-          <option value="C">Center</option>
-          <option value="LW">Left Wing</option>
-          <option value="RW">Right Wing</option>
-          <option value="D">Defense</option>
-          <option value="G">Goalie</option>
+          {POSITIONS.map((pos) => (
+            <option key={pos.value} value={pos.value}>
+              {pos.label}
+            </option>
+          ))}
         </select>
 
         <select
-          // implement onChange handler later and populate teams dynamically
-          className="border p-2 rounded w-1/2"
+          value={team}
+          onChange={(e) => setTeam(e.target.value)}
+          className="border p-2 rounded flex-1 min-w-[120px]"
         >
           <option value="">All Teams</option>
-          <option value="VAN">VAN</option>
-          <option value="EDM">EDM</option>
-          <option value="TOR">TOR</option>
+          {teams.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
         </select>
+
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value)}
+          className="border p-2 rounded flex-1 min-w-[120px]"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              Sort by {opt.label}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={() => setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+          className="border p-2 rounded min-w-[60px] hover:bg-gray-100"
+          title={sortOrder === 'desc' ? 'Descending' : 'Ascending'}
+        >
+          {sortOrder === 'desc' ? '↓' : '↑'}
+        </button>
       </div>
 
       {loading && <p className="mt-4 text-gray-500">Loading…</p>}
