@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from typing import List, Dict, Any
@@ -75,6 +75,15 @@ def players(q: str = Query(default=""),
         "limit": limit,
         "total": total
     }
+
+
+@app.get("/players/{player_id}")
+def get_player(player_id: int) -> Dict[str, Any]:
+    """Return a single player by ID."""
+    for player in CACHE:
+        if player.get("id") == player_id:
+            return {"player": player}
+    raise HTTPException(status_code=404, detail="Player not found")
 
 
 @app.get("/teams")

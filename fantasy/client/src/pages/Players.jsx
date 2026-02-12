@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FaSearch } from 'react-icons/fa'
 import Nav from '../components/nav'
+import PlayerCard from '../components/PlayerCard'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -160,7 +161,7 @@ export default function Players() {
 
         <button
           onClick={() => setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
-          className="border p-2 rounded min-w-[60px] hover:bg-gray-100"
+          className="p-2 rounded min-w-[60px] bg-indigo-500 hover:bg-indigo-600 text-white"
           title={sortOrder === 'desc' ? 'Descending' : 'Ascending'}
         >
           {sortOrder === 'desc' ? '↓' : '↑'}
@@ -170,35 +171,9 @@ export default function Players() {
       {loading && <p className="mt-4 text-gray-500">Loading…</p>}
       {error && <p className="mt-4 text-red-600">{error}</p>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4 mt-6 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-6 w-full">
         {players.map((player) => (
-          <div
-            key={player.id ?? player['Player ID']}
-            className="flex flex-col items-center rounded-lg border hover:bg-indigo-200 transition-colors duration-300"
-          >
-            <p className="p-2 font-medium">
-              {player.firstName} {player.lastName}
-            </p>
-
-            {player.headshot && (
-              <img
-                src={player.headshot}
-                alt={`${player.firstName} ${player.lastName}`}
-                className="w-full object-cover"
-                loading="lazy"
-              />
-            )}
-
-            <div className="p-2 bg-gray-100 w-full rounded-b-lg text-sm text-gray-700">
-              <p className="font-bold text-black">Career Stats</p>
-              <p>Games Played: {player.gamesPlayed}</p>
-              <p>Goals: {player.goals}</p>
-              <p>Assists: {player.assists}</p>
-              <p>Points: {player.points}</p>
-              <p>Position: {player.position}</p>
-              <p>Team: {player.teamAbbr}</p>
-            </div>
-          </div>
+          <PlayerCard key={player.id ?? player['Player ID']} player={player} />
         ))}
       </div>
       {total > limit && (

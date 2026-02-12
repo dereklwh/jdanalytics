@@ -11,6 +11,7 @@ SELECT = '''
 
 def normalize(r: dict) -> dict:
     return {
+        "id": r["Player ID"],
         "Player ID": r["Player ID"],
         "firstName": r["first_name"],
         "lastName": r["Last Name"],

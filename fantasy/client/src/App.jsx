@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { FaSearch } from 'react-icons/fa'
-import Nav from './components/nav'
 import { Routes, Route } from 'react-router-dom'
 import Players from './pages/Players'
+import PlayerDetail from './pages/PlayerDetail'
 import Teams from './pages/Teams'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
@@ -12,6 +10,7 @@ export default function App() {
     <>
       <Routes>
         <Route path="/" element={<Players />} />
+        <Route path="/players/:id" element={<PlayerDetail />} />
         <Route path="/teams" element={<Teams />} />
       </Routes>
     </>
