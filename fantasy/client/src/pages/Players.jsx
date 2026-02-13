@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FaSearch } from 'react-icons/fa'
 import Nav from '../components/nav'
-import PlayerCard from '../components/PlayerCard'
+import PlayerCard from '../components/playerCard'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
