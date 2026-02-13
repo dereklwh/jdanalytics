@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { FaSearch, FaTh, FaList } from 'react-icons/fa'
+import { FaSearch, FaTh, FaList, FaCircle } from 'react-icons/fa'
 import { Link } from 'react-router-dom'
 import Nav from '../components/nav'
 import PlayerCard from '../components/playerCard'
+import BubbleView from '../components/BubbleView'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -201,6 +202,13 @@ export default function Players() {
           >
             <FaList />
           </button>
+          <button
+            onClick={() => setViewMode('bubble')}
+            className={`p-2 rounded ${viewMode === 'bubble' ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+            title="Bubble view"
+          >
+            <FaCircle />
+          </button>
         </div>
       </div>
 
@@ -210,6 +218,8 @@ export default function Players() {
             <PlayerCard key={player.id ?? player['Player ID']} player={player} />
           ))}
         </div>
+      ) : viewMode === 'bubble' ? (
+        <BubbleView players={players} />
       ) : (
         <div className="w-full mt-4 bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
