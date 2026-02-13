@@ -3,6 +3,132 @@
 
 BEGIN;
 
+-- Create missing tables required by pipeline upserts.
+CREATE TABLE IF NOT EXISTS public.team_stats (
+    id BIGSERIAL PRIMARY KEY,
+    team_id BIGINT NOT NULL,
+    season_id BIGINT NOT NULL,
+    team_full_name TEXT,
+    games_played INTEGER,
+    wins INTEGER,
+    losses INTEGER,
+    ot_losses INTEGER,
+    points INTEGER,
+    goals_for INTEGER,
+    goals_against INTEGER,
+    goals_for_per_game DOUBLE PRECISION,
+    goals_against_per_game DOUBLE PRECISION,
+    shots_for_per_game DOUBLE PRECISION,
+    shots_against_per_game DOUBLE PRECISION,
+    power_play_pct DOUBLE PRECISION,
+    penalty_kill_pct DOUBLE PRECISION,
+    faceoff_win_pct DOUBLE PRECISION
+);
+
+CREATE TABLE IF NOT EXISTS public.players (
+    id BIGSERIAL PRIMARY KEY,
+    first_name TEXT,
+    last_name TEXT,
+    position TEXT
+);
+
+CREATE TABLE IF NOT EXISTS public.player_season_stats (
+    id BIGSERIAL PRIMARY KEY,
+    player_id BIGINT NOT NULL,
+    season_id BIGINT NOT NULL,
+    team_abbrev TEXT,
+    full_name TEXT,
+    position_code TEXT,
+    games_played INTEGER,
+    goals INTEGER,
+    assists INTEGER,
+    points INTEGER,
+    plus_minus INTEGER,
+    penalty_minutes INTEGER,
+    power_play_goals INTEGER,
+    pp_points INTEGER,
+    sh_goals INTEGER,
+    sh_points INTEGER,
+    ev_goals INTEGER,
+    ev_points INTEGER,
+    game_winning_goals INTEGER,
+    ot_goals INTEGER,
+    shots INTEGER,
+    shooting_pct DOUBLE PRECISION,
+    toi_per_game DOUBLE PRECISION,
+    faceoff_win_pct DOUBLE PRECISION,
+    points_per_game DOUBLE PRECISION,
+    shoots_catches TEXT
+);
+
+CREATE TABLE IF NOT EXISTS public.goalie_season_stats (
+    id BIGSERIAL PRIMARY KEY,
+    player_id BIGINT NOT NULL,
+    season_id BIGINT NOT NULL,
+    team_abbrev TEXT,
+    full_name TEXT,
+    games_played INTEGER,
+    games_started INTEGER,
+    wins INTEGER,
+    losses INTEGER,
+    ot_losses INTEGER,
+    goals_against INTEGER,
+    goals_against_average DOUBLE PRECISION,
+    shots_against INTEGER,
+    saves INTEGER,
+    save_pct DOUBLE PRECISION,
+    shutouts INTEGER,
+    goals INTEGER,
+    assists INTEGER,
+    points INTEGER,
+    penalty_minutes INTEGER,
+    toi INTEGER,
+    shoots_catches TEXT
+);
+
+CREATE TABLE IF NOT EXISTS public.player_game_stats (
+    id BIGSERIAL PRIMARY KEY,
+    player_id BIGINT NOT NULL,
+    game_id BIGINT NOT NULL,
+    team_abbrev TEXT,
+    home_road TEXT,
+    game_date DATE,
+    opponent_abbrev TEXT,
+    goals INTEGER,
+    assists INTEGER,
+    points INTEGER,
+    plus_minus INTEGER,
+    penalty_minutes INTEGER,
+    power_play_goals INTEGER,
+    pp_points INTEGER,
+    sh_goals INTEGER,
+    sh_points INTEGER,
+    game_winning_goals INTEGER,
+    ot_goals INTEGER,
+    shots INTEGER,
+    shifts INTEGER,
+    toi TEXT
+);
+
+CREATE TABLE IF NOT EXISTS public.goalie_game_stats (
+    id BIGSERIAL PRIMARY KEY,
+    player_id BIGINT NOT NULL,
+    game_id BIGINT NOT NULL,
+    team_abbrev TEXT,
+    home_road TEXT,
+    game_date DATE,
+    opponent_abbrev TEXT,
+    goals_against INTEGER,
+    saves INTEGER,
+    save_pct DOUBLE PRECISION,
+    shots_against INTEGER,
+    decision TEXT,
+    shutouts INTEGER,
+    games_started INTEGER,
+    penalty_minutes INTEGER,
+    toi TEXT
+);
+
 -- players: add NHL id + new dimension fields used by transform_players_dimension.
 ALTER TABLE IF EXISTS public.players
     ADD COLUMN IF NOT EXISTS player_id BIGINT,
