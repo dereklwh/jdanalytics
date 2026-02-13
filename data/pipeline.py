@@ -13,7 +13,33 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError(
+        "Missing SUPABASE_URL or SUPABASE_KEY. Set them in environment or data/.env."
+    )
+
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+REQUIRED_SCHEMA = {
+    "team_stats": ["team_id", "season_id", "points"],
+    "players": ["player_id", "first_name", "last_name", "position"],
+    "player_season_stats": ["player_id", "season_id", "points"],
+    "goalie_season_stats": ["player_id", "season_id", "save_pct"],
+    "player_game_stats": ["player_id", "game_id", "points"],
+    "goalie_game_stats": ["player_id", "game_id", "save_pct"],
+}
+
+
+def validate_supabase_schema():
+    for table, columns in REQUIRED_SCHEMA.items():
+        try:
+            supabase.table(table).select(",".join(columns)).limit(1).execute()
+        except Exception as exc:
+            raise RuntimeError(
+                f"Supabase schema check failed for table '{table}'. "
+                f"Expected columns: {', '.join(columns)}. "
+                "Run data/migrations/20260213_pipeline_schema_upgrade.sql in Supabase SQL Editor."
+            ) from exc
 
 # ---------------------
 # Pydantic Models
@@ -310,7 +336,7 @@ def upload_teams(cleaned):
     if not cleaned:
         print("No team data to upload")
         return
-    res = supabase.table("team_stats").upsert(
+    supabase.table("team_stats").upsert(
         cleaned,
         on_conflict="team_id, season_id"
     ).execute()
@@ -320,7 +346,7 @@ def upload_players(cleaned):
     if not cleaned:
         print("No player data to upload")
         return
-    res = supabase.table("players").upsert(
+    supabase.table("players").upsert(
         cleaned,
         on_conflict="player_id"
     ).execute()
@@ -330,7 +356,7 @@ def upload_skater_season_stats(cleaned):
     if not cleaned:
         print("No skater season stats to upload")
         return
-    res = supabase.table("player_season_stats").upsert(
+    supabase.table("player_season_stats").upsert(
         cleaned,
         on_conflict="player_id, season_id"
     ).execute()
@@ -340,7 +366,7 @@ def upload_goalie_season_stats(cleaned):
     if not cleaned:
         print("No goalie season stats to upload")
         return
-    res = supabase.table("goalie_season_stats").upsert(
+    supabase.table("goalie_season_stats").upsert(
         cleaned,
         on_conflict="player_id, season_id"
     ).execute()
@@ -371,6 +397,8 @@ def upload_goalie_game_stats(cleaned):
 # ---------------------
 
 if __name__ == "__main__":
+    validate_supabase_schema()
+
     # 1. Team stats
     print("=== Scraping team stats ===")
     raw_teams = scrape_teams()
@@ -398,7 +426,6 @@ if __name__ == "__main__":
     # 5. Collect all player IDs from bulk stats, then scrape game logs
     skater_ids = [s['player_id'] for s in transformed_skaters]
     goalie_ids = [g['player_id'] for g in transformed_goalies]
-    goalie_id_set = set(goalie_ids)
 
     all_player_ids = skater_ids + goalie_ids
     print(f"\n=== Scraping game logs for {len(all_player_ids)} players ===")

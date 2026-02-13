@@ -5,6 +5,7 @@ import pandas as pd
 
 RAW_DIR = Path(__file__).parent.parent / "raw"
 RAW_DIR.mkdir(exist_ok=True)
+SEASON_ID = "20252026"
 
 # Scrape NHL teams data and save to a JSON file
 def scrapePlayer(playerId, key=None):
@@ -59,7 +60,9 @@ def scrapePlayer(playerId, key=None):
 
     url = f"https://api-web.nhle.com/v1/player/{playerId}/landing"
 
-    response = requests.get(url).json()
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    response = response.json()
 
     if key in response.keys():
         response = response[key]
@@ -70,10 +73,11 @@ def scrapePlayer(playerId, key=None):
 
 def scrapeTeamIds():
     # URL to fetch data from current teams
-    current_teams_url = 'https://api.nhle.com/stats/rest/en/team/summary?cayenneExp=seasonId=20242025'
+    current_teams_url = f'https://api.nhle.com/stats/rest/en/team/summary?cayenneExp=seasonId={SEASON_ID}'
 
     # Send GET request to NHL API
-    response = requests.get(current_teams_url)
+    response = requests.get(current_teams_url, timeout=30)
+    response.raise_for_status()
     current_team_data = response.json()
 
     # Retrieve team IDs and abbreviations
@@ -81,7 +85,9 @@ def scrapeTeamIds():
     #print("Team IDs:", team_ids)
 
     teams_url = 'https://api.nhle.com/stats/rest/en/team'
-    team_data = requests.get(teams_url).json()
+    team_data = requests.get(teams_url, timeout=30)
+    team_data.raise_for_status()
+    team_data = team_data.json()
     #print(team_data)
     team_dict = {}
 
@@ -103,11 +109,12 @@ def scrapeAllPlayerIds(team_dict):
         team_count += 1
         print(team_count)
         team_abbrv = team_dict[item]
-        roster_url_endpoint = f'roster/{team_abbrv}/20252026'
+        roster_url_endpoint = f'roster/{team_abbrv}/{SEASON_ID}'
         final_url = base_url + roster_url_endpoint
 
         print(final_url)
-        response = requests.get(final_url)
+        response = requests.get(final_url, timeout=30)
+        response.raise_for_status()
         roster_data = response.json()
         
         for forward in roster_data['forwards']:
