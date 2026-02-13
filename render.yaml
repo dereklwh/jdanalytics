@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: jdanalytics-api
+    runtime: docker
+    plan: free
+    dockerContext: ./fantasy/server
+    dockerfilePath: ./fantasy/server/Dockerfile
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
