@@ -1,7 +1,6 @@
 import json
 import requests
 from pathlib import Path
-import pandas as pd
 
 RAW_DIR = Path(__file__).parent.parent / "raw"
 RAW_DIR.mkdir(exist_ok=True)
