@@ -32,3 +32,6 @@ source venv/bin/activate
 pip install -r requirements.txt
 uvicorn api.main:app --reload
 ```
+
+### Future Plans
+Watch out for AI/ML features 👀
