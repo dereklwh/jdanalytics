@@ -129,7 +129,7 @@ def _build_season_players() -> List[Dict[str, Any]]:
     skater_resp = (
         client
         .table("player_season_stats")
-        .select("player_id, season_id, team_abbrev, games_played, goals, assists, points")
+        .select("player_id, season_id, team_abbrev, games_played, goals, assists, points, position_code")
         .execute()
     )
     skater_rows = skater_resp.data or []
@@ -141,6 +141,9 @@ def _build_season_players() -> List[Dict[str, Any]]:
         .execute()
     )
     goalie_rows = goalie_resp.data or []
+
+    # Track which player_ids are goalies so we can assign position="G"
+    goalie_ids: set = {row.get("player_id") for row in goalie_rows if row.get("player_id") is not None}
 
     latest_by_player: Dict[int, Dict[str, Any]] = {}
     for row in skater_rows + goalie_rows:
@@ -160,13 +163,19 @@ def _build_season_players() -> List[Dict[str, Any]]:
     for player_id, row in latest_by_player.items():
         db_row = players_by_id.get(player_id) or {}
         cache_row = cache_by_id.get(player_id) or {}
+        # For skaters, prefer position_code from the season stats row (comes directly from NHL API).
+        # For goalies (no position_code in goalie_season_stats), use "G".
+        if player_id in goalie_ids:
+            position = db_row.get("position") or cache_row.get("position") or "G"
+        else:
+            position = row.get("position_code") or db_row.get("position") or cache_row.get("position")
         rows.append({
             "id": player_id,
             "Player ID": player_id,
             "firstName": db_row.get("first_name") or cache_row.get("firstName") or "",
             "lastName": db_row.get("last_name") or cache_row.get("lastName") or "",
             "headshot": db_row.get("headshot") or cache_row.get("headshot"),
-            "position": db_row.get("position") or cache_row.get("position"),
+            "position": position,
             "teamAbbr": row.get("team_abbrev") or cache_row.get("teamAbbr"),
             "gamesPlayed": int(_num(row.get("games_played"))),
             "goals": int(_num(row.get("goals"))),
@@ -406,12 +415,20 @@ def player_detail(player_id: int) -> Dict[str, Any]:
 
 @app.get("/teams")
 def teams() -> Dict[str, Any]:
-    """Return unique team abbreviations from cached players."""
+    """Return unique team abbreviations from both career and season stats data."""
     team_set = set()
+    # Include teams from CACHE (career/legacy data)
     for p in CACHE:
         abbr = p.get("teamAbbr")
         if abbr:
             team_set.add(abbr)
+    # Also include teams from current season stats so season-scope team filter works
+    for table in ("player_season_stats", "goalie_season_stats"):
+        resp = client.table(table).select("team_abbrev").execute()
+        for row in (resp.data or []):
+            abbr = row.get("team_abbrev")
+            if abbr:
+                team_set.add(abbr)
     return {"teams": sorted(team_set)}
 
 @app.get("/standings")
