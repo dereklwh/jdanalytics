@@ -129,7 +129,7 @@ def _build_season_players() -> List[Dict[str, Any]]:
     skater_resp = (
         client
         .table("player_season_stats")
-        .select("player_id, season_id, team_abbrev, games_played, goals, assists, points")
+        .select("player_id, season_id, team_abbrev, games_played, goals, assists, points, position_code")
         .execute()
     )
     skater_rows = skater_resp.data or []
@@ -141,6 +141,9 @@ def _build_season_players() -> List[Dict[str, Any]]:
         .execute()
     )
     goalie_rows = goalie_resp.data or []
+
+    # Track which player_ids are goalies so we can assign position="G"
+    goalie_ids: set = {row.get("player_id") for row in goalie_rows if row.get("player_id") is not None}
 
     latest_by_player: Dict[int, Dict[str, Any]] = {}
     for row in skater_rows + goalie_rows:
@@ -160,13 +163,19 @@ def _build_season_players() -> List[Dict[str, Any]]:
     for player_id, row in latest_by_player.items():
         db_row = players_by_id.get(player_id) or {}
         cache_row = cache_by_id.get(player_id) or {}
+        # For skaters, prefer position_code from the season stats row (comes directly from NHL API).
+        # For goalies (no position_code in goalie_season_stats), use "G".
+        if player_id in goalie_ids:
+            position = db_row.get("position") or cache_row.get("position") or "G"
+        else:
+            position = row.get("position_code") or db_row.get("position") or cache_row.get("position")
         rows.append({
             "id": player_id,
             "Player ID": player_id,
             "firstName": db_row.get("first_name") or cache_row.get("firstName") or "",
             "lastName": db_row.get("last_name") or cache_row.get("lastName") or "",
             "headshot": db_row.get("headshot") or cache_row.get("headshot"),
-            "position": db_row.get("position") or cache_row.get("position"),
+            "position": position,
             "teamAbbr": row.get("team_abbrev") or cache_row.get("teamAbbr"),
             "gamesPlayed": int(_num(row.get("games_played"))),
             "goals": int(_num(row.get("goals"))),
@@ -196,7 +205,7 @@ def players(q: str = Query(default=""),
     # search by name
     if q:
         ql = q.lower()
-        filtered = [p for p in filtered if ql in p["firstName"].lower() or ql in p["lastName"].lower()]
+        filtered = [p for p in filtered if ql in (p.get("firstName") or "").lower() or ql in (p.get("lastName") or "").lower()]
 
     # filter by position
     if position:
@@ -246,6 +255,84 @@ def _num(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _latest_season_id(table: str) -> int:
+    response = (
+        client
+        .table(table)
+        .select("season_id")
+        .order("season_id", desc=True)
+        .limit(1)
+        .execute()
+    )
+    rows = response.data or []
+    if not rows:
+        return 0
+    return int(_num(rows[0].get("season_id")))
+
+
+def _build_radar_context(season_type: str) -> Dict[str, Any]:
+    if season_type == "goalie":
+        table = "goalie_season_stats"
+        fields = "player_id, season_id, games_played, wins, save_pct, goals_against_average, shutouts, games_started, shots_against"
+    else:
+        table = "player_season_stats"
+        fields = "player_id, season_id, games_played, goals, assists, shooting_pct, toi_per_game, pp_points, plus_minus"
+
+    season_id = _latest_season_id(table)
+    if season_id == 0:
+        return {"season_type": season_type, "season_id": None, "count": 0, "players": []}
+
+    min_gp = 10 if season_type == "goalie" else 10
+    response = (
+        client
+        .table(table)
+        .select(fields)
+        .eq("season_id", season_id)
+        .gte("games_played", min_gp)
+        .execute()
+    )
+    rows = response.data or []
+    players = []
+
+    for row in rows:
+        if season_type == "goalie":
+            players.append({
+                "player_id": row.get("player_id"),
+                "games_played": _num(row.get("games_played")),
+                "wins": _num(row.get("wins")),
+                "save_pct": _num(row.get("save_pct")),
+                "goals_against_average": _num(row.get("goals_against_average")),
+                "shutouts": _num(row.get("shutouts")),
+                "games_started": _num(row.get("games_started")),
+                "shots_against": _num(row.get("shots_against")),
+            })
+        else:
+            players.append({
+                "player_id": row.get("player_id"),
+                "games_played": _num(row.get("games_played")),
+                "goals": _num(row.get("goals")),
+                "assists": _num(row.get("assists")),
+                "shooting_pct": _num(row.get("shooting_pct")),
+                "toi_per_game": _num(row.get("toi_per_game")),
+                "pp_points": _num(row.get("pp_points")),
+                "plus_minus": _num(row.get("plus_minus")),
+            })
+
+    return {
+        "season_type": season_type,
+        "season_id": season_id,
+        "count": len(players),
+        "players": players,
+    }
+
+
+@app.get("/player-radar-context")
+def player_radar_context(
+    season_type: str = Query(default="skater", pattern="^(skater|goalie)$")
+) -> Dict[str, Any]:
+    return _build_radar_context(season_type)
 
 
 def _latest_season_row(player_id: int, table: str) -> Dict[str, Any]:
@@ -372,6 +459,7 @@ def player_detail(player_id: int) -> Dict[str, Any]:
     games_table = "goalie_game_stats" if is_goalie else "player_game_stats"
 
     season = _latest_season_row(player_id, season_table)
+    # TODO(#8): Add `games_limit` query param so Player Detail can fetch full-season logs for heatmap/timeline.
     recent_games = _load_recent_games(player_id, games_table, limit=10)
     form = _build_goalie_form(recent_games) if is_goalie else _build_skater_form(recent_games)
     splits = _build_home_away_splits(recent_games, is_goalie=is_goalie)
@@ -406,12 +494,21 @@ def player_detail(player_id: int) -> Dict[str, Any]:
 
 @app.get("/teams")
 def teams() -> Dict[str, Any]:
-    """Return unique team abbreviations from cached players."""
+    """Return unique team abbreviations from both career and season stats data."""
     team_set = set()
+    # Include teams from CACHE (career/legacy data)
     for p in CACHE:
         abbr = p.get("teamAbbr")
         if abbr:
             team_set.add(abbr)
+    # Also include teams from current season stats so season-scope team filter works.
+    # Filter to current season only — no need to fetch all historical rows.
+    for table in ("player_season_stats", "goalie_season_stats"):
+        resp = client.table(table).select("team_abbrev").eq("season_id", 20252026).execute()
+        for row in (resp.data or []):
+            abbr = row.get("team_abbrev")
+            if abbr:
+                team_set.add(abbr)
     return {"teams": sorted(team_set)}
 
 @app.get("/standings")

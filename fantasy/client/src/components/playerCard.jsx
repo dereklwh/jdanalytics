@@ -6,25 +6,37 @@ export default function PlayerCard({ player }) {
   return (
     <Link
       to={`/players/${playerId}`}
-      className="group flex flex-col items-center rounded-lg border border-gray-200 bg-white
-                 transition-all duration-300 ease-out
-                 hover:-translate-y-0.5 hover:shadow-md hover:border-indigo-400
-                 cursor-pointer"
+      className="btn-shine w-full rounded-lg border border-gray-200 bg-white hover:bg-gray-50 cursor-pointer p-2 sm:p-0"
     >
-      <p className="p-2 font-medium text-gray-800 group-hover:text-indigo-600 transition-colors duration-300">
-        {player.firstName} {player.lastName}
-      </p>
+      <div className="flex items-center gap-3 sm:block">
+        {player.headshot && (
+          <img
+            src={player.headshot}
+            alt={`${player.firstName} ${player.lastName}`}
+            className="h-16 w-16 sm:h-auto sm:w-full rounded-md sm:rounded-none object-cover shrink-0"
+            loading="lazy"
+          />
+        )}
 
-      {player.headshot && (
-        <img
-          src={player.headshot}
-          alt={`${player.firstName} ${player.lastName}`}
-          className="w-full object-cover"
-          loading="lazy"
-        />
-      )}
+        <div className="min-w-0 flex-1 sm:p-2 sm:text-center">
+          <p className="font-medium text-gray-800 truncate sm:truncate-none">
+            {player.firstName} {player.lastName}
+          </p>
+          <div className="mt-1 flex items-center gap-2 sm:hidden text-xs text-gray-600">
+            <span className="font-semibold text-gray-800">{player.position}</span>
+            <span className="text-[11px] bg-gray-200 px-2 py-0.5 rounded">{player.teamAbbr}</span>
+          </div>
+        </div>
+      </div>
 
-      <div className="p-2 bg-gray-50 w-full rounded-b-lg text-sm text-gray-600">
+      <div className="mt-2 grid grid-cols-4 gap-1 text-[11px] text-gray-600 sm:hidden">
+        <span>GP {player.gamesPlayed}</span>
+        <span>PTS {player.points}</span>
+        <span>G {player.goals}</span>
+        <span>A {player.assists}</span>
+      </div>
+
+      <div className="hidden sm:block p-2 bg-gray-50 w-full rounded-b-lg text-sm text-gray-600">
         <div className="flex justify-between items-center mb-1">
           <span className="font-semibold text-gray-800">{player.position}</span>
           <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">{player.teamAbbr}</span>

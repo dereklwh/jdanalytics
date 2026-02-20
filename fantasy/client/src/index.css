@@ -9,9 +9,9 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #6d6868;
+  color-scheme: light;
+  color: #213547;
+  background-color: #ffffff;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -21,11 +21,8 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: inherit;
   text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
 }
 
 /* body {
@@ -48,22 +45,76 @@ button {
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
 }
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
+/* Shine border animation */
+@property --shine-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
 }
+
+@keyframes shine-spin {
+  to { --shine-angle: 360deg; }
+}
+
+@keyframes shine-spin-fade {
+  0%   { --shine-angle: 0deg;   opacity: 1; }
+  80%  {                        opacity: 1; }
+  100% { --shine-angle: 360deg; opacity: 0; }
+}
+
+.btn-shine {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.btn-shine::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--shine-angle), transparent 0%, rgba(255,255,255,0.9) 8%, transparent 16%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.btn-shine:hover::before {
+  animation: shine-spin 0.7s linear 1 forwards;
+}
+
+/* Shine border animation - light background variant */
+.btn-shine-light {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.btn-shine-light::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--shine-angle), transparent 0%, rgba(250,204,21,0.95) 8%, transparent 16%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+}
+
+.btn-shine-light:hover::before {
+  animation: shine-spin-fade 0.7s linear 1 forwards;
+}
+

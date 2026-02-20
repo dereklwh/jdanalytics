@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import Nav from '../components/nav'
+import PerformanceTrend from '../components/PerformanceTrend'
+import PlayerRadarChart from '../components/PlayerRadarChart'
 import { getTeamColors, isLightColor } from '../utils/teamColors'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
@@ -10,6 +12,9 @@ export default function PlayerDetail() {
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [radarContext, setRadarContext] = useState(null)
+  const [radarLoading, setRadarLoading] = useState(false)
+  const [radarError, setRadarError] = useState(null)
 
   useEffect(() => {
     const fetchPlayer = async () => {
@@ -35,6 +40,42 @@ export default function PlayerDetail() {
     fetchPlayer()
   }, [id])
 
+  useEffect(() => {
+    const seasonType = detail?.season_type
+    if (!seasonType) return
+
+    const controller = new AbortController()
+
+    const fetchRadarContext = async () => {
+      try {
+        setRadarLoading(true)
+        setRadarError(null)
+        setRadarContext(null)
+
+        const params = new URLSearchParams({ season_type: seasonType })
+        const res = await fetch(`${API_BASE}/player-radar-context?${params}`, {
+          signal: controller.signal,
+        })
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`)
+        }
+        const data = await res.json()
+        setRadarContext(data)
+      } catch (e) {
+        if (e.name === 'AbortError') return
+        console.error('Error fetching radar context:', e)
+        setRadarError('Unable to load radar context')
+      } finally {
+        if (!controller.signal.aborted) {
+          setRadarLoading(false)
+        }
+      }
+    }
+
+    fetchRadarContext()
+    return () => controller.abort()
+  }, [detail?.season_type, id])
+
   if (loading) {
     return (
       <div className="flex flex-col items-center max-w-5xl mx-auto p-4">
@@ -50,7 +91,7 @@ export default function PlayerDetail() {
         <Nav />
         <div className="mt-8 text-center">
           <p className="text-red-600 mb-4">{error ?? 'Player not found'}</p>
-          <Link to="/" className="text-indigo-600 hover:text-indigo-800 underline">
+          <Link to="/players" className="text-indigo-600 hover:text-indigo-800 underline">
             &larr; Back to Players
           </Link>
         </div>
@@ -67,7 +108,7 @@ export default function PlayerDetail() {
     <div className="flex flex-col items-center max-w-5xl mx-auto p-4">
       <Nav />
 
-      <Link to="/" className="self-start mt-4 text-indigo-600 hover:text-indigo-800 transition-colors">
+      <Link to="/players" className="self-start mt-4 text-indigo-600 hover:text-indigo-800 transition-colors">
         &larr; Back to Players
       </Link>
 
@@ -125,6 +166,16 @@ export default function PlayerDetail() {
             </>
           )}
         </div>
+      </div>
+
+      <div className="w-full mt-6">
+        <Panel title="Advanced Season Stats">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            {(isGoalie ? getAdvancedGoalieMetrics(season) : getAdvancedSkaterMetrics(season)).map((metric) => (
+              <Metric key={metric.label} label={metric.label} value={metric.value} />
+            ))}
+          </div>
+        </Panel>
       </div>
 
       <div className="w-full mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -191,6 +242,23 @@ export default function PlayerDetail() {
         </Panel>
       </div>
 
+      <div className="w-full mt-6">
+        <PerformanceTrend games={recent_games ?? []} isGoalie={isGoalie} teamColor={primary} />
+      </div>
+
+      <div className="w-full mt-6">
+        <PlayerRadarChart
+          season={season}
+          seasonType={season_type}
+          leaguePlayers={radarContext?.players ?? []}
+          seasonId={radarContext?.season_id}
+          teamColor={primary}
+          loading={radarLoading}
+          error={radarError}
+        />
+      </div>
+
+      {/* TODO(#8): Add season game heatmap/timeline below trend/radar when backend supports configurable game-log window. */}
       <div className="w-full mt-6 bg-white rounded-lg border border-gray-200 overflow-hidden">
         <h3 className="text-lg font-semibold text-gray-800 p-4 border-b">Recent Games</h3>
         <div className="overflow-x-auto">
@@ -278,6 +346,7 @@ function Metric({ label, value }) {
 }
 
 function formatDec(value, digits = 2) {
+  if (value === null || value === undefined || value === '') return '-'
   const n = Number(value)
   if (Number.isNaN(n)) return '-'
   return n.toFixed(digits)
@@ -291,4 +360,50 @@ function goalieRecord(season) {
 function birthPlace(player) {
   const parts = [player.birthCity, player.birthCountry].filter(Boolean)
   return parts.length ? parts.join(', ') : '-'
+}
+
+function getAdvancedSkaterMetrics(season) {
+  return [
+    { label: 'Plus/Minus', value: formatSigned(season?.plus_minus) },
+    { label: 'Shooting %', value: formatPercent(season?.shooting_pct, 1) },
+    { label: 'TOI / GP', value: formatDec(season?.toi_per_game, 2) },
+    { label: 'Faceoff Win %', value: formatPercent(season?.faceoff_win_pct, 1) },
+    { label: 'PP Goals', value: season?.power_play_goals ?? 0 },
+    { label: 'PP Points', value: season?.pp_points ?? 0 },
+    { label: 'SH Goals', value: season?.sh_goals ?? 0 },
+    { label: 'SH Points', value: season?.sh_points ?? 0 },
+    { label: 'EV Goals', value: season?.ev_goals ?? 0 },
+    { label: 'EV Points', value: season?.ev_points ?? 0 },
+    { label: 'GWG', value: season?.game_winning_goals ?? 0 },
+    { label: 'Shots', value: season?.shots ?? 0 },
+  ]
+}
+
+function getAdvancedGoalieMetrics(season) {
+  return [
+    { label: 'Shutouts', value: season?.shutouts ?? 0 },
+    { label: 'Record', value: goalieRecord(season) },
+    { label: 'Games Started', value: season?.games_started ?? 0 },
+    { label: 'Save %', value: formatPercent(season?.save_pct, 1) },
+    { label: 'GAA', value: formatDec(season?.goals_against_average, 2) },
+    { label: 'Shots Against', value: season?.shots_against ?? 0 },
+    { label: 'Goals Against', value: season?.goals_against ?? 0 },
+    { label: 'TOI', value: season?.toi ?? '-' },
+  ]
+}
+
+function formatPercent(value, digits = 1) {
+  if (value === null || value === undefined || value === '') return '-'
+  const n = Number(value)
+  if (Number.isNaN(n)) return '-'
+  const pct = n <= 1 ? n * 100 : n
+  return `${pct.toFixed(digits)}%`
+}
+
+function formatSigned(value) {
+  if (value === null || value === undefined || value === '') return '-'
+  const n = Number(value)
+  if (Number.isNaN(n)) return '-'
+  if (n > 0) return `+${n}`
+  return `${n}`
 }
