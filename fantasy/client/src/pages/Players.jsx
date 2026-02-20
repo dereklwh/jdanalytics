@@ -42,6 +42,7 @@ export default function Players() {
   const [sortOrder, setSortOrder] = useState('desc')
   const [teams, setTeams] = useState([])
   const [viewMode, setViewMode] = useState('grid')
+  // TODO(#5): Add compare selection state (2-3 players) and action to open `/compare`.
 
   // small debounce helper
   const debounce = useMemo(() => {
@@ -113,9 +114,9 @@ export default function Players() {
   return (
     <div className="flex flex-col items-center max-w-6xl mx-auto p-4">
       <Nav />
-      <h1 className="mb-6">Players</h1>
+      <h1 className="mb-3 mt-1 text-3xl sm:text-4xl">Players</h1>
 
-      <div className="relative mt-4 w-full sm:w-2/3 lg:w-1/2">
+      <div className="relative mt-2 w-full sm:w-2/3 lg:w-1/2">
         <input
           type="text"
           placeholder="Search players…"
@@ -126,7 +127,7 @@ export default function Players() {
         <FaSearch className="absolute top-1/2 left-3 -translate-y-1/2 text-gray-500" />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-4 w-full sm:w-2/3 lg:w-5/6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-3 w-full sm:w-2/3 lg:w-5/6">
         <select
           value={statsScope}
           onChange={(e) => setStatsScope(e.target.value)}
@@ -182,7 +183,7 @@ export default function Players() {
         </button>
       </div>
 
-      <div className="flex justify-between items-center mt-4 w-full">
+      <div className="flex justify-between items-center mt-3 w-full">
         <div>
           {loading && <p className="text-gray-500">Loading…</p>}
           {error && <p className="text-red-600">{error}</p>}
@@ -213,7 +214,7 @@ export default function Players() {
       </div>
 
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-4 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 mt-3 w-full">
           {players.map((player) => (
             <PlayerCard key={player.id ?? player['Player ID']} player={player} />
           ))}
