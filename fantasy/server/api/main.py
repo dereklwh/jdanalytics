@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Query, HTTPException
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from typing import List, Dict, Any
 from .cache import CACHE, refresher_loop, refresh_once
 from .supa import supa
+from .og_image import generate_player_card
 
 client = supa()
 
@@ -490,6 +492,26 @@ def player_detail(player_id: int) -> Dict[str, Any]:
         "home_away_splits": splits,
         "recent_games": recent_games,
     }
+
+
+@app.get("/players/{player_id}/og-image")
+def player_og_image(player_id: int):
+    """Generate a trading-card style OG image for a player."""
+    detail = player_detail(player_id)
+    player = detail["player"]
+    season = detail.get("season") or {}
+    season_type = detail.get("season_type", "skater")
+    is_goalie = season_type == "goalie"
+
+    radar = _build_radar_context("goalie" if is_goalie else "skater")
+    league_players = radar.get("players", [])
+
+    png_bytes = generate_player_card(player, season, season_type, league_players)
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=600"},
+    )
 
 
 @app.get("/teams")

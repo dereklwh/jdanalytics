@@ -15,6 +15,7 @@ export default function PlayerDetail() {
   const [radarContext, setRadarContext] = useState(null)
   const [radarLoading, setRadarLoading] = useState(false)
   const [radarError, setRadarError] = useState(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const fetchPlayer = async () => {
@@ -112,7 +113,31 @@ export default function PlayerDetail() {
         &larr; Back to Players
       </Link>
 
-      <div className="w-full mt-6 rounded-xl p-6 shadow-sm" style={{ backgroundColor: primary, color: textColor }}>
+      <div className="w-full mt-6 rounded-xl p-6 shadow-sm relative" style={{ backgroundColor: primary, color: textColor }}>
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(window.location.href).then(() => {
+              setCopied(true)
+              setTimeout(() => setCopied(false), 2000)
+            })
+          }}
+          className="absolute top-4 right-4 p-2 rounded-lg transition-colors cursor-pointer"
+          style={{ backgroundColor: `${textColor}15` }}
+          title="Copy link to share"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={textColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+        </button>
+        {copied && (
+          <div
+            className="absolute top-14 right-4 px-3 py-1.5 rounded-lg text-sm font-medium shadow-lg animate-fade-in"
+            style={{ backgroundColor: secondary, color: isLightColor(secondary) ? '#111827' : '#ffffff' }}
+          >
+            Link copied!
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row items-center gap-6">
           {player.headshot && (
             <div
