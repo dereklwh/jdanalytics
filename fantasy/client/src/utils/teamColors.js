@@ -43,3 +43,27 @@ export function isLightColor(hex) {
   const b = parseInt(hex.slice(5, 7), 16)
   return (r * 299 + g * 587 + b * 114) / 1000 > 160
 }
+
+export function getTeamLogoUrl(abbr) {
+  if (!abbr) return null
+  return `https://assets.nhle.com/logos/nhl/svg/${abbr.toUpperCase()}_light.svg`
+}
+
+const TEAM_ABBR_BY_NAME = {
+  'anaheim ducks': 'ANA', 'boston bruins': 'BOS', 'buffalo sabres': 'BUF',
+  'carolina hurricanes': 'CAR', 'columbus blue jackets': 'CBJ', 'calgary flames': 'CGY',
+  'chicago blackhawks': 'CHI', 'colorado avalanche': 'COL', 'dallas stars': 'DAL',
+  'detroit red wings': 'DET', 'edmonton oilers': 'EDM', 'florida panthers': 'FLA',
+  'los angeles kings': 'LAK', 'minnesota wild': 'MIN', 'montreal canadiens': 'MTL', 'montréal canadiens': 'MTL',
+  'new jersey devils': 'NJD', 'nashville predators': 'NSH', 'new york islanders': 'NYI',
+  'new york rangers': 'NYR', 'ottawa senators': 'OTT', 'philadelphia flyers': 'PHI',
+  'pittsburgh penguins': 'PIT', 'seattle kraken': 'SEA', 'san jose sharks': 'SJS',
+  'st. louis blues': 'STL', 'st louis blues': 'STL', 'tampa bay lightning': 'TBL',
+  'toronto maple leafs': 'TOR', 'utah hockey club': 'UTA', 'utah mammoth': 'UTA', 'vancouver canucks': 'VAN',
+  'vegas golden knights': 'VGK', 'winnipeg jets': 'WPG', 'washington capitals': 'WSH',
+}
+
+export function teamAbbrFromName(name) {
+  if (!name) return null
+  return TEAM_ABBR_BY_NAME[name.toLowerCase()] ?? null
+}

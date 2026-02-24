@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import Nav from '../components/nav'
 import TeamScatterPlot from '../components/TeamScatterPlot'
+import { getTeamLogoUrl, teamAbbrFromName } from '../utils/teamColors'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -67,7 +68,12 @@ export default function Teams() {
                   {standings.map((team, index) => (
                     <tr key={team.id ?? `${team.team_full_name}-${index}`} className="border-t border-gray-100 hover:bg-gray-50">
                       <td className="text-right p-3 text-gray-500">{index + 1}</td>
-                      <td className="p-3 font-medium text-gray-800">{team.team_full_name}</td>
+                      <td className="p-3 font-medium text-gray-800">
+                        <span className="inline-flex items-center gap-2">
+                          <img src={getTeamLogoUrl(teamAbbrFromName(team.team_full_name))} alt="" className="h-5 w-5" />
+                          {team.team_full_name}
+                        </span>
+                      </td>
                       <td className="text-right p-3 text-gray-600">{team.games_played ?? 0}</td>
                       <td className="text-right p-3 text-gray-600">
                         {(team.wins ?? 0)}-{(team.losses ?? 0)}-{(team.ot_losses ?? 0)}

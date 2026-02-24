@@ -1,9 +1,32 @@
 import asyncio
-from typing import List, Dict
+import time
+from typing import List, Dict, Any
 from .supa import supa
 
 CACHE: List[Dict] = []
 REFRESH_SECONDS = 600  # 10m
+
+# ---------------------------------------------------------------------------
+# Generic TTL cache — stores {key: (data, timestamp)}
+# ---------------------------------------------------------------------------
+_timed_cache: Dict[str, tuple] = {}
+TTL_SECONDS = 600  # 10 min, same as player cache
+
+
+def timed_get(key: str) -> Any | None:
+    """Return cached value if present and fresh, else None."""
+    entry = _timed_cache.get(key)
+    if entry is None:
+        return None
+    data, ts = entry
+    if time.monotonic() - ts > TTL_SECONDS:
+        del _timed_cache[key]
+        return None
+    return data
+
+
+def timed_set(key: str, data: Any) -> None:
+    _timed_cache[key] = (data, time.monotonic())
 
 SELECT = '''
 "Player ID", first_name, "Last Name", Headshot, "Games Played", Goals, Assists, Points, Position, "Team Abbreviation"

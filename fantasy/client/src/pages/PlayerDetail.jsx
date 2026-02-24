@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import Nav from '../components/nav'
 import PerformanceTrend from '../components/PerformanceTrend'
 import PlayerRadarChart from '../components/PlayerRadarChart'
-import { getTeamColors, isLightColor } from '../utils/teamColors'
+import { getTeamColors, isLightColor, getTeamLogoUrl } from '../utils/teamColors'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -163,9 +163,10 @@ export default function PlayerDetail() {
                 {player.position}
               </span>
               <span
-                className="px-3 py-1 rounded-full text-sm font-medium"
+                className="px-3 py-1 rounded-full text-sm font-medium inline-flex items-center gap-1.5"
                 style={{ backgroundColor: secondary, color: isLightColor(secondary) ? '#111827' : '#ffffff' }}
               >
+                {player.teamAbbr && <img src={getTeamLogoUrl(player.teamAbbr)} alt="" className="h-4 w-4" />}
                 {player.teamAbbr}
               </span>
             </div>

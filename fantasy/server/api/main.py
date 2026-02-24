@@ -3,7 +3,7 @@ from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from typing import List, Dict, Any
-from .cache import CACHE, refresher_loop, refresh_once
+from .cache import CACHE, refresher_loop, refresh_once, timed_get, timed_set
 from .supa import supa
 from .og_image import generate_player_card
 
@@ -202,7 +202,12 @@ def players(q: str = Query(default=""),
     if stats_scope == "career":
         filtered = CACHE if CACHE else _build_career_players()
     else:
-        filtered = _build_season_players()
+        cached = timed_get("season_players")
+        if cached is not None:
+            filtered = cached
+        else:
+            filtered = _build_season_players()
+            timed_set("season_players", filtered)
 
     # search by name
     if q:
@@ -334,7 +339,13 @@ def _build_radar_context(season_type: str) -> Dict[str, Any]:
 def player_radar_context(
     season_type: str = Query(default="skater", pattern="^(skater|goalie)$")
 ) -> Dict[str, Any]:
-    return _build_radar_context(season_type)
+    key = f"radar_context:{season_type}"
+    cached = timed_get(key)
+    if cached is not None:
+        return cached
+    result = _build_radar_context(season_type)
+    timed_set(key, result)
+    return result
 
 
 def _latest_season_row(player_id: int, table: str) -> Dict[str, Any]:
@@ -503,7 +514,12 @@ def player_og_image(player_id: int):
     season_type = detail.get("season_type", "skater")
     is_goalie = season_type == "goalie"
 
-    radar = _build_radar_context("goalie" if is_goalie else "skater")
+    radar_type = "goalie" if is_goalie else "skater"
+    radar_key = f"radar_context:{radar_type}"
+    radar = timed_get(radar_key)
+    if radar is None:
+        radar = _build_radar_context(radar_type)
+        timed_set(radar_key, radar)
     league_players = radar.get("players", [])
 
     png_bytes = generate_player_card(player, season, season_type, league_players)
@@ -517,24 +533,29 @@ def player_og_image(player_id: int):
 @app.get("/teams")
 def teams() -> Dict[str, Any]:
     """Return unique team abbreviations from both career and season stats data."""
+    cached = timed_get("teams")
+    if cached is not None:
+        return cached
     team_set = set()
-    # Include teams from CACHE (career/legacy data)
     for p in CACHE:
         abbr = p.get("teamAbbr")
         if abbr:
             team_set.add(abbr)
-    # Also include teams from current season stats so season-scope team filter works.
-    # Filter to current season only — no need to fetch all historical rows.
     for table in ("player_season_stats", "goalie_season_stats"):
         resp = client.table(table).select("team_abbrev").eq("season_id", 20252026).execute()
         for row in (resp.data or []):
             abbr = row.get("team_abbrev")
             if abbr:
                 team_set.add(abbr)
-    return {"teams": sorted(team_set)}
+    result = {"teams": sorted(team_set)}
+    timed_set("teams", result)
+    return result
 
 @app.get("/standings")
 def standings() -> Dict[str, Any]:
+    cached = timed_get("standings")
+    if cached is not None:
+        return cached
     response = (
         client
         .table("team_stats")
@@ -544,6 +565,6 @@ def standings() -> Dict[str, Any]:
         .order("goals_for", desc=True)
         .execute()
     )
-    return {
-        "standings": response.data
-    }
+    result = {"standings": response.data}
+    timed_set("standings", result)
+    return result

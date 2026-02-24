@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { getTeamLogoUrl } from '../utils/teamColors'
 
 export default function PlayerCard({ player }) {
   const playerId = player.id ?? player['Player ID']
@@ -24,7 +25,10 @@ export default function PlayerCard({ player }) {
           </p>
           <div className="mt-1 flex items-center gap-2 sm:hidden text-xs text-gray-600">
             <span className="font-semibold text-gray-800">{player.position}</span>
-            <span className="text-[11px] bg-gray-200 px-2 py-0.5 rounded">{player.teamAbbr}</span>
+            <span className="text-[11px] bg-gray-200 px-2 py-0.5 rounded inline-flex items-center gap-1">
+              {player.teamAbbr && <img src={getTeamLogoUrl(player.teamAbbr)} alt="" className="h-3.5 w-3.5" />}
+              {player.teamAbbr}
+            </span>
           </div>
         </div>
       </div>
@@ -39,7 +43,10 @@ export default function PlayerCard({ player }) {
       <div className="hidden sm:block p-2 bg-gray-50 w-full rounded-b-lg text-sm text-gray-600">
         <div className="flex justify-between items-center mb-1">
           <span className="font-semibold text-gray-800">{player.position}</span>
-          <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">{player.teamAbbr}</span>
+          <span className="text-xs bg-gray-200 px-2 py-0.5 rounded inline-flex items-center gap-1">
+            {player.teamAbbr && <img src={getTeamLogoUrl(player.teamAbbr)} alt="" className="h-3.5 w-3.5" />}
+            {player.teamAbbr}
+          </span>
         </div>
         <div className="grid grid-cols-2 gap-1 text-xs">
           <span>GP: {player.gamesPlayed}</span>

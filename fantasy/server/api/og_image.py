@@ -95,8 +95,8 @@ def _compute_percentiles(
     return percentiles
 
 
-def _fetch_headshot(url: str) -> Optional[Image.Image]:
-    """Download a player headshot, return as PIL Image or None."""
+def _fetch_image(url: str) -> Optional[Image.Image]:
+    """Download an image from URL, return as PIL Image or None."""
     try:
         resp = httpx.get(url, timeout=5.0, follow_redirects=True)
         if resp.status_code == 200:
@@ -104,6 +104,10 @@ def _fetch_headshot(url: str) -> Optional[Image.Image]:
     except Exception:
         pass
     return None
+
+
+def _get_team_logo_url(abbr: str) -> str:
+    return f"https://assets.nhle.com/logos/nhl/svg/{abbr.upper()}_light.svg"
 
 
 # Friendly label mapping for percentile bars
@@ -168,7 +172,7 @@ def generate_player_card(
     headshot_size = 200
     headshot_url = player.get("headshot")
     if headshot_url:
-        headshot_img = _fetch_headshot(headshot_url)
+        headshot_img = _fetch_image(headshot_url)
         if headshot_img:
             headshot_img = headshot_img.resize(
                 (headshot_size, headshot_size), Image.LANCZOS
@@ -180,6 +184,17 @@ def generate_player_card(
                 fill=(255, 255, 255),
             )
             img.paste(headshot_img, (headshot_x, headshot_y), headshot_img)
+
+    # Team logo (top-right corner)
+    if team_abbr:
+        logo_url = _get_team_logo_url(team_abbr)
+        logo_img = _fetch_image(logo_url)
+        if logo_img:
+            logo_size = 80
+            logo_img = logo_img.resize((logo_size, logo_size), Image.LANCZOS)
+            logo_x = WIDTH - logo_size - 40
+            logo_y = 40
+            img.paste(logo_img, (logo_x, logo_y), logo_img)
 
     # Player name
     name_x = headshot_x + headshot_size + 40

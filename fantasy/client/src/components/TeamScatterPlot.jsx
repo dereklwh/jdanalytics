@@ -1,45 +1,10 @@
 import { useMemo } from 'react'
-import { getTeamColors, isLightColor } from '../utils/teamColors'
+import { getTeamColors, isLightColor, getTeamLogoUrl, teamAbbrFromName } from '../utils/teamColors'
 
 const CHART_WIDTH = 860
 const CHART_HEIGHT = 460
 const PADDING = { top: 28, right: 28, bottom: 52, left: 62 }
 
-const TEAM_ABBR_BY_NAME = {
-  'anaheim ducks': 'ANA',
-  'boston bruins': 'BOS',
-  'buffalo sabres': 'BUF',
-  'carolina hurricanes': 'CAR',
-  'columbus blue jackets': 'CBJ',
-  'calgary flames': 'CGY',
-  'chicago blackhawks': 'CHI',
-  'colorado avalanche': 'COL',
-  'dallas stars': 'DAL',
-  'detroit red wings': 'DET',
-  'edmonton oilers': 'EDM',
-  'florida panthers': 'FLA',
-  'los angeles kings': 'LAK',
-  'minnesota wild': 'MIN',
-  'montreal canadiens': 'MTL',
-  'new jersey devils': 'NJD',
-  'nashville predators': 'NSH',
-  'new york islanders': 'NYI',
-  'new york rangers': 'NYR',
-  'ottawa senators': 'OTT',
-  'philadelphia flyers': 'PHI',
-  'pittsburgh penguins': 'PIT',
-  'seattle kraken': 'SEA',
-  'san jose sharks': 'SJS',
-  'st. louis blues': 'STL',
-  'st louis blues': 'STL',
-  'tampa bay lightning': 'TBL',
-  'toronto maple leafs': 'TOR',
-  'utah hockey club': 'UTA',
-  'vancouver canucks': 'VAN',
-  'vegas golden knights': 'VGK',
-  'winnipeg jets': 'WPG',
-  'washington capitals': 'WSH',
-}
 
 export default function TeamScatterPlot({ standings = [] }) {
   const points = useMemo(() => {
@@ -52,7 +17,7 @@ export default function TeamScatterPlot({ standings = [] }) {
       const ga = hasPerGame ? toNumber(team.goals_against_per_game) : toNumber(team.goals_against)
       const pts = toNumber(team.points)
       const teamName = team.team_full_name ?? 'Unknown Team'
-      const abbr = (team.team_abbrev || TEAM_ABBR_BY_NAME[teamName.toLowerCase()] || shortCode(teamName)).toUpperCase()
+      const abbr = (team.team_abbrev || teamAbbrFromName(teamName) || shortCode(teamName)).toUpperCase()
       const record = `${team.wins ?? 0}-${team.losses ?? 0}-${team.ot_losses ?? 0}`
       return {
         id: team.id ?? `${teamName}-${index}`,
@@ -135,19 +100,25 @@ export default function TeamScatterPlot({ standings = [] }) {
           const radius = radiusScale(point.pts)
           const x = xScale(point.gf)
           const y = yScale(point.ga)
+          const logoUrl = getTeamLogoUrl(point.abbr)
+          const logoSize = radius * 1.3
           return (
             <g key={point.id}>
               <circle cx={x} cy={y} r={radius} fill={primary} fillOpacity="0.8" stroke="#111827" strokeOpacity="0.14" strokeWidth="1.5" />
-              <text
-                x={x}
-                y={y + 4}
-                textAnchor="middle"
-                fontSize="11"
-                fontWeight="700"
-                fill={isLightColor(primary) ? '#111827' : '#ffffff'}
-              >
-                {point.abbr}
-              </text>
+              {logoUrl ? (
+                <image href={logoUrl} x={x - logoSize / 2} y={y - logoSize / 2} width={logoSize} height={logoSize} />
+              ) : (
+                <text
+                  x={x}
+                  y={y + 4}
+                  textAnchor="middle"
+                  fontSize="11"
+                  fontWeight="700"
+                  fill={isLightColor(primary) ? '#111827' : '#ffffff'}
+                >
+                  {point.abbr}
+                </text>
+              )}
               <title>{`${point.teamName} (${point.record}) | Points: ${point.pts} | GF: ${point.gf.toFixed(2)} | GA: ${point.ga.toFixed(2)}`}</title>
             </g>
           )
