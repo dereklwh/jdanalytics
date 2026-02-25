@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { FaSearch, FaTh, FaList, FaCircle } from 'react-icons/fa'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Nav from '../components/nav'
 import PlayerCard from '../components/playerCard'
 import BubbleView from '../components/BubbleView'
@@ -25,8 +25,10 @@ const SORT_OPTIONS = [
 ]
 
 export default function Players() {
+  const navigate = useNavigate()
   const [players, setPlayers] = useState([])
   const [searchText, setSearchText] = useState('')
+  const [debouncedSearchText, setDebouncedSearchText] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [statsScope, setStatsScope] = useState('season')
@@ -42,74 +44,80 @@ export default function Players() {
   const [sortOrder, setSortOrder] = useState('desc')
   const [teams, setTeams] = useState([])
   const [viewMode, setViewMode] = useState('grid')
+  const requestSeqRef = useRef(0)
   // TODO(#5): Add compare selection state (2-3 players) and action to open `/compare`.
-
-  // small debounce helper
-  const debounce = useMemo(() => {
-    let t
-    return (fn, wait = 250) => {
-      clearTimeout(t)
-      t = setTimeout(fn, wait)
-    }
-  }, [])
-
-  const fetchPlayers = async (pageNum = 1) => {
-    try {
-      setLoading(true)
-      setError(null)
-
-      const params = new URLSearchParams({
-        q: searchText,
-        page: pageNum,
-        limit,
-        position,
-        team,
-        sort_by: sortBy,
-        sort_order: sortOrder,
-        stats_scope: statsScope,
-      })
-      const res = await fetch(`${API_BASE}/players?${params}`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-      const data = await res.json()
-      setPlayers(data.data)
-      setTotal(data.total)
-    } catch (e) {
-      console.error('Error fetching players:', e)
-      setError('Failed to load players')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // Fetch teams list on mount
   useEffect(() => {
+    const controller = new AbortController()
     const fetchTeams = async () => {
       try {
-        const res = await fetch(`${API_BASE}/teams`)
+        const res = await fetch(`${API_BASE}/teams`, { signal: controller.signal })
         if (res.ok) {
           const data = await res.json()
-          setTeams(data.teams || [])
+          if (!controller.signal.aborted) {
+            setTeams(data.teams || [])
+          }
         }
       } catch (e) {
+        if (e.name === 'AbortError') return
         console.error('Error fetching teams:', e)
       }
     }
     fetchTeams()
+    return () => controller.abort()
   }, [])
 
-  // Fetch players when page changes
+  // Debounce search so rapid typing doesn't spam the API
   useEffect(() => {
-    fetchPlayers(page)
-  }, [page])
-
-  // Reset to page 1 and fetch when filters/sort/search change
-  useEffect(() => {
-    debounce(() => {
-      setPage(1)
-      fetchPlayers(1)
+    const timer = setTimeout(() => {
+      setDebouncedSearchText(searchText)
     }, 250)
-  }, [searchText, position, team, sortBy, sortOrder, statsScope, debounce])
+    return () => clearTimeout(timer)
+  }, [searchText])
+
+  // Fetch players whenever page/query changes
+  useEffect(() => {
+    const controller = new AbortController()
+    const requestId = ++requestSeqRef.current
+
+    const fetchPlayers = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const params = new URLSearchParams({
+          q: debouncedSearchText,
+          page: String(page),
+          limit: String(limit),
+          position,
+          team,
+          sort_by: sortBy,
+          sort_order: sortOrder,
+          stats_scope: statsScope,
+        })
+        const res = await fetch(`${API_BASE}/players?${params}`, { signal: controller.signal })
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+        const data = await res.json()
+        if (controller.signal.aborted || requestId !== requestSeqRef.current) return
+        setPlayers(data.data)
+        setTotal(data.total)
+      } catch (e) {
+        if (e.name === 'AbortError') return
+        if (requestId !== requestSeqRef.current) return
+        console.error('Error fetching players:', e)
+        setError('Failed to load players')
+      } finally {
+        if (!controller.signal.aborted && requestId === requestSeqRef.current) {
+          setLoading(false)
+        }
+      }
+    }
+
+    fetchPlayers()
+    return () => controller.abort()
+  }, [page, limit, debouncedSearchText, position, team, sortBy, sortOrder, statsScope])
 
   return (
     <div className="flex flex-col items-center max-w-6xl mx-auto p-4">
@@ -120,7 +128,10 @@ export default function Players() {
         <input
           type="text"
           placeholder="Search players…"
-          onChange={(e) => setSearchText(e.target.value)}
+          onChange={(e) => {
+            setSearchText(e.target.value)
+            setPage(1)
+          }}
           value={searchText}
           className="border-b px-10 py-2 text-black w-full"
         />
@@ -130,7 +141,10 @@ export default function Players() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-3 w-full sm:w-2/3 lg:w-5/6">
         <select
           value={statsScope}
-          onChange={(e) => setStatsScope(e.target.value)}
+          onChange={(e) => {
+            setStatsScope(e.target.value)
+            setPage(1)
+          }}
           className="border p-2 rounded w-full"
         >
           <option value="season">Season Stats</option>
@@ -139,7 +153,10 @@ export default function Players() {
 
         <select
           value={position}
-          onChange={(e) => setPosition(e.target.value)}
+          onChange={(e) => {
+            setPosition(e.target.value)
+            setPage(1)
+          }}
           className="border p-2 rounded w-full"
         >
           {POSITIONS.map((pos) => (
@@ -151,7 +168,10 @@ export default function Players() {
 
         <select
           value={team}
-          onChange={(e) => setTeam(e.target.value)}
+          onChange={(e) => {
+            setTeam(e.target.value)
+            setPage(1)
+          }}
           className="border p-2 rounded w-full"
         >
           <option value="">All Teams</option>
@@ -164,7 +184,10 @@ export default function Players() {
 
         <select
           value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
+          onChange={(e) => {
+            setSortBy(e.target.value)
+            setPage(1)
+          }}
           className="border p-2 rounded w-full"
         >
           {SORT_OPTIONS.map((opt) => (
@@ -175,7 +198,10 @@ export default function Players() {
         </select>
 
         <button
-          onClick={() => setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc'))}
+          onClick={() => {
+            setSortOrder((o) => (o === 'desc' ? 'asc' : 'desc'))
+            setPage(1)
+          }}
           className="p-2 rounded w-full bg-indigo-500 hover:bg-indigo-600 text-white"
           title={sortOrder === 'desc' ? 'Descending' : 'Ascending'}
         >
@@ -237,13 +263,22 @@ export default function Players() {
               </tr>
             </thead>
             <tbody>
-              {players.map((player, i) => (
-                <Link
-                  key={player.id ?? player['Player ID']}
-                  to={`/players/${player.id ?? player['Player ID']}`}
-                  className="contents"
-                >
-                  <tr className="border-t border-gray-100 hover:bg-indigo-50 cursor-pointer transition-colors">
+              {players.map((player, i) => {
+                const playerId = player.id ?? player['Player ID']
+                return (
+                  <tr
+                    key={playerId}
+                    tabIndex={0}
+                    role="link"
+                    onClick={() => navigate(`/players/${playerId}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate(`/players/${playerId}`)
+                      }
+                    }}
+                    className="border-t border-gray-100 hover:bg-indigo-50 cursor-pointer transition-colors focus:outline-none focus-visible:bg-indigo-50"
+                  >
                     <td className="p-3 text-gray-400">{(page - 1) * limit + i + 1}</td>
                     <td className="p-3 font-medium text-gray-800">{player.firstName} {player.lastName}</td>
                     <td className="p-3 text-gray-600">{player.position}</td>
@@ -253,8 +288,8 @@ export default function Players() {
                     <td className="p-3 text-right text-gray-600">{player.assists ?? 0}</td>
                     <td className="p-3 text-right font-semibold text-gray-800">{player.points ?? 0}</td>
                   </tr>
-                </Link>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>

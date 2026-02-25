@@ -3,14 +3,18 @@ from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from typing import List, Dict, Any
-from .cache import CACHE, refresher_loop, refresh_once, timed_get, timed_set
+from .cache import CACHE, refresher_loop, refresh_once, timed_get, timed_set, get_refresh_state
 from .supa import supa
 from .og_image import generate_player_card
 
 client = supa()
 
 async def app_lifespan(app: FastAPI):
-    await refresh_once()
+    try:
+        await refresh_once()
+    except Exception as e:
+        # Start the API even if the warm cache refresh fails; background refresh will retry.
+        print("initial cache refresh error:", e)
     task = asyncio.create_task(refresher_loop())
     yield
 
@@ -32,7 +36,19 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"ok": True, "players_cached": len(CACHE)}
+    refresh = get_refresh_state()
+    cache_ready = refresh.get("last_success_at") is not None
+    return {
+        "ok": cache_ready,
+        "degraded": bool(refresh.get("last_error")),
+        "players_cached": len(CACHE),
+        "cache_ready": cache_ready,
+        "last_refresh_attempt_at": refresh.get("last_attempt_at"),
+        "last_refresh_success_at": refresh.get("last_success_at"),
+        "last_refresh_error_at": refresh.get("last_error_at"),
+        "last_refresh_error": refresh.get("last_error"),
+        "consecutive_refresh_failures": refresh.get("consecutive_failures", 0),
+    }
 
 
 def _build_career_players() -> List[Dict[str, Any]]:
