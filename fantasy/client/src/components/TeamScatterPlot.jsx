@@ -105,20 +105,19 @@ export default function TeamScatterPlot({ standings = [] }) {
           return (
             <g key={point.id}>
               <circle cx={x} cy={y} r={radius} fill={primary} fillOpacity="0.8" stroke="#111827" strokeOpacity="0.14" strokeWidth="1.5" />
+              <text
+                x={x}
+                y={y + 4}
+                textAnchor="middle"
+                fontSize="11"
+                fontWeight="700"
+                fill={isLightColor(primary) ? '#111827' : '#ffffff'}
+              >
+                {point.abbr}
+              </text>
               {logoUrl ? (
                 <image href={logoUrl} x={x - logoSize / 2} y={y - logoSize / 2} width={logoSize} height={logoSize} />
-              ) : (
-                <text
-                  x={x}
-                  y={y + 4}
-                  textAnchor="middle"
-                  fontSize="11"
-                  fontWeight="700"
-                  fill={isLightColor(primary) ? '#111827' : '#ffffff'}
-                >
-                  {point.abbr}
-                </text>
-              )}
+              ) : null}
               <title>{`${point.teamName} (${point.record}) | Points: ${point.pts} | GF: ${point.gf.toFixed(2)} | GA: ${point.ga.toFixed(2)}`}</title>
             </g>
           )

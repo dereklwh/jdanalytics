@@ -65,26 +65,30 @@ export default function Teams() {
                   </tr>
                 </thead>
                 <tbody>
-                  {standings.map((team, index) => (
-                    <tr key={team.id ?? `${team.team_full_name}-${index}`} className="border-t border-gray-100 hover:bg-gray-50">
-                      <td className="text-right p-3 text-gray-500">{index + 1}</td>
-                      <td className="p-3 font-medium text-gray-800">
-                        <span className="inline-flex items-center gap-2">
-                          <img src={getTeamLogoUrl(teamAbbrFromName(team.team_full_name))} alt="" className="h-5 w-5" />
-                          {team.team_full_name}
-                        </span>
-                      </td>
-                      <td className="text-right p-3 text-gray-600">{team.games_played ?? 0}</td>
-                      <td className="text-right p-3 text-gray-600">
-                        {(team.wins ?? 0)}-{(team.losses ?? 0)}-{(team.ot_losses ?? 0)}
-                      </td>
-                      <td className="text-right p-3 font-semibold text-gray-900">{team.points ?? 0}</td>
-                      <td className="text-right p-3 text-gray-600">{formatNum(team.goals_for_per_game, 2)}</td>
-                      <td className="text-right p-3 text-gray-600">{formatNum(team.goals_against_per_game, 2)}</td>
-                      <td className="text-right p-3 text-gray-600">{formatPercent(team.power_play_pct, 1)}</td>
-                      <td className="text-right p-3 text-gray-600">{formatPercent(team.penalty_kill_pct, 1)}</td>
-                    </tr>
-                  ))}
+                  {standings.map((team, index) => {
+                    const teamAbbr = team.team_abbrev || teamAbbrFromName(team.team_full_name)
+                    const logoUrl = getTeamLogoUrl(teamAbbr)
+                    return (
+                      <tr key={team.id ?? `${team.team_full_name}-${index}`} className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="text-right p-3 text-gray-500">{index + 1}</td>
+                        <td className="p-3 font-medium text-gray-800">
+                          <span className="inline-flex items-center gap-2">
+                            {logoUrl ? <img src={logoUrl} alt="" className="h-5 w-5" /> : null}
+                            {team.team_full_name}
+                          </span>
+                        </td>
+                        <td className="text-right p-3 text-gray-600">{team.games_played ?? 0}</td>
+                        <td className="text-right p-3 text-gray-600">
+                          {(team.wins ?? 0)}-{(team.losses ?? 0)}-{(team.ot_losses ?? 0)}
+                        </td>
+                        <td className="text-right p-3 font-semibold text-gray-900">{team.points ?? 0}</td>
+                        <td className="text-right p-3 text-gray-600">{formatNum(team.goals_for_per_game, 2)}</td>
+                        <td className="text-right p-3 text-gray-600">{formatNum(team.goals_against_per_game, 2)}</td>
+                        <td className="text-right p-3 text-gray-600">{formatPercent(team.power_play_pct, 1)}</td>
+                        <td className="text-right p-3 text-gray-600">{formatPercent(team.penalty_kill_pct, 1)}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

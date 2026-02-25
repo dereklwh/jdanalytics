@@ -97,6 +97,9 @@ def _compute_percentiles(
 
 def _fetch_image(url: str) -> Optional[Image.Image]:
     """Download an image from URL, return as PIL Image or None."""
+    # Pillow does not support SVG decoding by default.
+    if url.lower().endswith(".svg"):
+        return None
     try:
         resp = httpx.get(url, timeout=5.0, follow_redirects=True)
         if resp.status_code == 200:
@@ -187,14 +190,29 @@ def generate_player_card(
 
     # Team logo (top-right corner)
     if team_abbr:
+        logo_size = 80
+        logo_x = WIDTH - logo_size - 40
+        logo_y = 40
         logo_url = _get_team_logo_url(team_abbr)
         logo_img = _fetch_image(logo_url)
         if logo_img:
-            logo_size = 80
             logo_img = logo_img.resize((logo_size, logo_size), Image.LANCZOS)
-            logo_x = WIDTH - logo_size - 40
-            logo_y = 40
             img.paste(logo_img, (logo_x, logo_y), logo_img)
+        else:
+            # Fallback badge so the top-right team mark still renders if logo fetch/format fails.
+            draw.rounded_rectangle(
+                [logo_x, logo_y, logo_x + logo_size, logo_y + logo_size],
+                radius=14,
+                fill=(255, 255, 255),
+            )
+            badge_font = _get_font(24)
+            badge_text = str(team_abbr).upper()[:3]
+            bbox = draw.textbbox((0, 0), badge_text, font=badge_font)
+            text_w = bbox[2] - bbox[0]
+            text_h = bbox[3] - bbox[1]
+            text_x = logo_x + (logo_size - text_w) / 2
+            text_y = logo_y + (logo_size - text_h) / 2 - bbox[1]
+            draw.text((text_x, text_y), badge_text, fill=primary, font=badge_font)
 
     # Player name
     name_x = headshot_x + headshot_size + 40
