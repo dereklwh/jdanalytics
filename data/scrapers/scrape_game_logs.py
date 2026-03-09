@@ -3,10 +3,15 @@ import time
 import requests
 from pathlib import Path
 
+try:
+    from scrapers.season_config import DEFAULT_SEASON_ID
+except ImportError:
+    from season_config import DEFAULT_SEASON_ID
+
 RAW_DIR = Path(__file__).parent.parent / "raw"
 RAW_DIR.mkdir(exist_ok=True)
 
-def scrape_player_game_log(player_id, season_id="20252026", game_type="2"):
+def scrape_player_game_log(player_id, season_id=DEFAULT_SEASON_ID, game_type="2"):
     url = f"https://api-web.nhle.com/v1/player/{player_id}/game-log/{season_id}/{game_type}"
 
     response = requests.get(url)
@@ -15,7 +20,7 @@ def scrape_player_game_log(player_id, season_id="20252026", game_type="2"):
 
     return data.get("gameLog", [])
 
-def scrape_all_game_logs(player_ids, season_id="20252026", game_type="2"):
+def scrape_all_game_logs(player_ids, season_id=DEFAULT_SEASON_ID, game_type="2"):
     all_logs = {}
     total = len(player_ids)
 

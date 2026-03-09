@@ -2,9 +2,14 @@ import json
 import requests
 from pathlib import Path
 
+try:
+    from scrapers.season_config import DEFAULT_SEASON_ID
+except ImportError:
+    from season_config import DEFAULT_SEASON_ID
+
 RAW_DIR = Path(__file__).parent.parent / "raw"
 RAW_DIR.mkdir(exist_ok=True)
-SEASON_ID = "20252026"
+SEASON_ID = DEFAULT_SEASON_ID
 
 # Scrape NHL teams data and save to a JSON file
 def scrapePlayer(playerId, key=None):

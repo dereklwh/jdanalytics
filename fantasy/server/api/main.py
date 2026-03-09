@@ -295,6 +295,13 @@ def _latest_season_id(table: str) -> int:
     return int(_num(rows[0].get("season_id")))
 
 
+def _latest_loaded_season_id(*tables: str) -> int:
+    latest = 0
+    for table in tables:
+        latest = max(latest, _latest_season_id(table))
+    return latest
+
+
 def _build_radar_context(season_type: str) -> Dict[str, Any]:
     if season_type == "goalie":
         table = "goalie_season_stats"
@@ -552,17 +559,19 @@ def teams() -> Dict[str, Any]:
     cached = timed_get("teams")
     if cached is not None:
         return cached
+    season_id = _latest_loaded_season_id("player_season_stats", "goalie_season_stats")
     team_set = set()
     for p in CACHE:
         abbr = p.get("teamAbbr")
         if abbr:
             team_set.add(abbr)
-    for table in ("player_season_stats", "goalie_season_stats"):
-        resp = client.table(table).select("team_abbrev").eq("season_id", 20252026).execute()
-        for row in (resp.data or []):
-            abbr = row.get("team_abbrev")
-            if abbr:
-                team_set.add(abbr)
+    if season_id:
+        for table in ("player_season_stats", "goalie_season_stats"):
+            resp = client.table(table).select("team_abbrev").eq("season_id", season_id).execute()
+            for row in (resp.data or []):
+                abbr = row.get("team_abbrev")
+                if abbr:
+                    team_set.add(abbr)
     result = {"teams": sorted(team_set)}
     timed_set("teams", result)
     return result
@@ -572,11 +581,16 @@ def standings() -> Dict[str, Any]:
     cached = timed_get("standings")
     if cached is not None:
         return cached
+    season_id = _latest_loaded_season_id("team_stats")
+    if not season_id:
+        result = {"standings": []}
+        timed_set("standings", result)
+        return result
     response = (
         client
         .table("team_stats")
         .select("*")
-        .eq("season_id", 20252026)
+        .eq("season_id", season_id)
         .order("points", desc=True)
         .order("goals_for", desc=True)
         .execute()

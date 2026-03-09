@@ -8,6 +8,7 @@ from scrapers.scrape_players import scrape_players
 from scrapers.scrape_skater_stats import scrape_skater_stats
 from scrapers.scrape_goalie_stats import scrape_goalie_stats
 from scrapers.scrape_game_logs import scrape_all_game_logs
+from scrapers.season_config import season_label
 
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -21,6 +22,7 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 REQUIRED_SCHEMA = {
+    "seasons": ["season_id", "season_label"],
     "team_stats": ["team_id", "season_id", "points"],
     "players": ["player_id", "first_name", "last_name", "position"],
     "player_season_stats": ["player_id", "season_id", "points"],
@@ -63,6 +65,12 @@ class TeamStats(BaseModel):
     penalty_kill_pct: float
     faceoff_win_pct: float
     team_full_name: str
+
+
+class SeasonDimension(BaseModel):
+    season_id: int
+    season_label: str
+    is_current: bool = False
 
 class SkaterSeasonStats(BaseModel):
     player_id: int
@@ -180,6 +188,23 @@ def transform_team_stats(raw_data):
             team_full_name=item['teamFullName']
         )
         transformed.append(team_stats.model_dump())
+    return transformed
+
+
+def transform_seasons(*season_ids):
+    normalized = sorted({int(season_id) for season_id in season_ids if season_id})
+    if not normalized:
+        return []
+
+    current_season_id = max(normalized)
+    transformed = []
+    for current in normalized:
+        season = SeasonDimension(
+            season_id=current,
+            season_label=season_label(current),
+            is_current=current == current_season_id,
+        )
+        transformed.append(season.model_dump())
     return transformed
 
 def transform_players_dimension(raw):
@@ -342,6 +367,25 @@ def upload_teams(cleaned):
     ).execute()
     print(f"Team stats uploaded: {len(cleaned)} rows")
 
+
+def upload_seasons(cleaned):
+    if not cleaned:
+        print("No season data to upload")
+        return
+    current_season_id = next(
+        (row["season_id"] for row in cleaned if row.get("is_current")),
+        None,
+    )
+    if current_season_id is not None:
+        supabase.table("seasons").update({"is_current": False}).neq(
+            "season_id", current_season_id
+        ).execute()
+    supabase.table("seasons").upsert(
+        cleaned,
+        on_conflict="season_id"
+    ).execute()
+    print(f"Season data uploaded: {len(cleaned)} rows")
+
 def upload_players(cleaned):
     if not cleaned:
         print("No player data to upload")
@@ -399,31 +443,41 @@ def upload_goalie_game_stats(cleaned):
 if __name__ == "__main__":
     validate_supabase_schema()
 
-    # 1. Team stats
+    # 1. Scrape and transform team stats
     print("=== Scraping team stats ===")
     raw_teams = scrape_teams()
     transformed_teams = transform_team_stats(raw_teams)
-    upload_teams(transformed_teams)
 
-    # 2. Skater season stats (bulk — 1 API call)
+    # 2. Scrape and transform skater season stats (bulk — 1 API call)
     print("\n=== Scraping skater season stats ===")
     raw_skaters = scrape_skater_stats()
     transformed_skaters = transform_skater_season_stats(raw_skaters)
-    upload_skater_season_stats(transformed_skaters)
 
-    # 3. Goalie season stats (bulk — 1 API call)
+    # 3. Scrape and transform goalie season stats (bulk — 1 API call)
     print("\n=== Scraping goalie season stats ===")
     raw_goalies = scrape_goalie_stats()
     transformed_goalies = transform_goalie_season_stats(raw_goalies)
+
+    # 4. Upsert season dimension rows before writing season-scoped facts.
+    season_rows = transform_seasons(
+        *(row["season_id"] for row in transformed_teams),
+        *(row["season_id"] for row in transformed_skaters),
+        *(row["season_id"] for row in transformed_goalies),
+    )
+    upload_seasons(season_rows)
+
+    # 5. Upload season-scoped facts after the season dimension is available.
+    upload_teams(transformed_teams)
+    upload_skater_season_stats(transformed_skaters)
     upload_goalie_season_stats(transformed_goalies)
 
-    # 4. Player dimension data
+    # 6. Player dimension data
     print("\n=== Scraping player dimension data ===")
     raw_players = scrape_players()
     transformed_players = transform_players_dimension(raw_players)
     upload_players(transformed_players)
 
-    # 5. Collect all player IDs from bulk stats, then scrape game logs
+    # 7. Collect all player IDs from bulk stats, then scrape game logs
     skater_ids = [s['player_id'] for s in transformed_skaters]
     goalie_ids = [g['player_id'] for g in transformed_goalies]
 
@@ -431,7 +485,7 @@ if __name__ == "__main__":
     print(f"\n=== Scraping game logs for {len(all_player_ids)} players ===")
     all_game_logs = scrape_all_game_logs(all_player_ids)
 
-    # 6. Transform and upload skater game stats
+    # 8. Transform and upload skater game stats
     print("\n=== Processing skater game stats ===")
     all_skater_games = []
     for pid in skater_ids:
@@ -440,7 +494,7 @@ if __name__ == "__main__":
             all_skater_games.extend(transform_skater_game_logs(pid, logs))
     upload_skater_game_stats(all_skater_games)
 
-    # 7. Transform and upload goalie game stats
+    # 9. Transform and upload goalie game stats
     print("\n=== Processing goalie game stats ===")
     all_goalie_games = []
     for pid in goalie_ids:

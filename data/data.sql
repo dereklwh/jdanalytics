@@ -1,17 +1,51 @@
-CREATE TABLE teams(
-    id SERIAL PRIMARY KEY,
+-- Canonical schema for NHL analytics data.
+-- External NHL identifiers are treated as the stable business keys.
+
+CREATE TABLE seasons (
+    season_id BIGINT PRIMARY KEY,
+    season_label VARCHAR(9) NOT NULL UNIQUE,
+    is_current BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE teams (
+    team_id BIGINT PRIMARY KEY,
     team_name VARCHAR(50) NOT NULL,
     team_full_name VARCHAR(100) NOT NULL,
-    abbreviation VARCHAR(10) NOT NULL,
+    abbreviation VARCHAR(10) NOT NULL UNIQUE,
     city VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE players (
+    player_id BIGINT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    position VARCHAR(10),
+    current_team_id BIGINT,
+    birth_date DATE,
+    birth_city VARCHAR(100),
+    birth_country VARCHAR(100),
+    height_cm INTEGER,
+    weight_kg INTEGER,
+    shoots_catches VARCHAR(5),
+    headshot TEXT,
+    hero_image TEXT,
+    player_slug TEXT,
+    draft_year INTEGER,
+    draft_team_abbrev VARCHAR(10),
+    draft_round INTEGER,
+    draft_overall_pick INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (current_team_id) REFERENCES teams(team_id)
 );
 
 CREATE TABLE team_stats (
-    id SERIAL PRIMARY KEY,
-    team_id INTEGER NOT NULL,
-    season_id INTEGER NOT NULL,
+    team_id BIGINT NOT NULL,
+    season_id BIGINT NOT NULL,
     team_full_name VARCHAR(100) NOT NULL,
     games_played INTEGER,
     wins INTEGER,
@@ -20,33 +54,22 @@ CREATE TABLE team_stats (
     points INTEGER,
     goals_for INTEGER,
     goals_against INTEGER,
-    goals_for_per_game FLOAT,
-    goals_against_per_game FLOAT,
-    shots_for_per_game FLOAT,
-    shots_against_per_game FLOAT,
-    power_play_pct FLOAT,
-    penalty_kill_pct FLOAT,
-    faceoff_win_pct FLOAT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (team_id) REFERENCES teams(id),
-    FOREIGN KEY (season_id) REFERENCES seasons(id),
-    UNIQUE (team_id, season_id)
+    goals_for_per_game DOUBLE PRECISION,
+    goals_against_per_game DOUBLE PRECISION,
+    shots_for_per_game DOUBLE PRECISION,
+    shots_against_per_game DOUBLE PRECISION,
+    power_play_pct DOUBLE PRECISION,
+    penalty_kill_pct DOUBLE PRECISION,
+    faceoff_win_pct DOUBLE PRECISION,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (team_id, season_id),
+    FOREIGN KEY (season_id) REFERENCES seasons(season_id)
 );
 
-CREATE TABLE players(
-    id SERIAL PRIMARY KEY,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50) NOT NULL,
-    position VARCHAR(10),
-    team_id INTEGER,
-    FOREIGN KEY (team_id) REFERENCES teams(id)
-);
-
-CREATE TABLE player_season_stats(
-    id SERIAL PRIMARY KEY,
-    player_id INTEGER NOT NULL,
-    season_id INTEGER NOT NULL,
+CREATE TABLE player_season_stats (
+    player_id BIGINT NOT NULL,
+    season_id BIGINT NOT NULL,
     team_abbrev VARCHAR(10),
     full_name VARCHAR(100),
     position_code VARCHAR(5),
@@ -65,18 +88,18 @@ CREATE TABLE player_season_stats(
     game_winning_goals INTEGER,
     ot_goals INTEGER,
     shots INTEGER,
-    shooting_pct FLOAT,
-    toi_per_game FLOAT,
-    faceoff_win_pct FLOAT,
-    points_per_game FLOAT,
+    shooting_pct DOUBLE PRECISION,
+    toi_per_game DOUBLE PRECISION,
+    faceoff_win_pct DOUBLE PRECISION,
+    points_per_game DOUBLE PRECISION,
     shoots_catches VARCHAR(5),
-    UNIQUE (player_id, season_id)
+    PRIMARY KEY (player_id, season_id),
+    FOREIGN KEY (season_id) REFERENCES seasons(season_id)
 );
 
-CREATE TABLE goalie_season_stats(
-    id SERIAL PRIMARY KEY,
-    player_id INTEGER NOT NULL,
-    season_id INTEGER NOT NULL,
+CREATE TABLE goalie_season_stats (
+    player_id BIGINT NOT NULL,
+    season_id BIGINT NOT NULL,
     team_abbrev VARCHAR(10),
     full_name VARCHAR(100),
     games_played INTEGER,
@@ -85,10 +108,10 @@ CREATE TABLE goalie_season_stats(
     losses INTEGER,
     ot_losses INTEGER,
     goals_against INTEGER,
-    goals_against_average FLOAT,
+    goals_against_average DOUBLE PRECISION,
     shots_against INTEGER,
     saves INTEGER,
-    save_pct FLOAT,
+    save_pct DOUBLE PRECISION,
     shutouts INTEGER,
     goals INTEGER,
     assists INTEGER,
@@ -96,12 +119,27 @@ CREATE TABLE goalie_season_stats(
     penalty_minutes INTEGER,
     toi INTEGER,
     shoots_catches VARCHAR(5),
-    UNIQUE (player_id, season_id)
+    PRIMARY KEY (player_id, season_id),
+    FOREIGN KEY (season_id) REFERENCES seasons(season_id)
 );
 
-CREATE TABLE player_game_stats(
-    id SERIAL PRIMARY KEY,
-    player_id INTEGER NOT NULL,
+CREATE TABLE games (
+    game_id BIGINT PRIMARY KEY,
+    game_date DATE NOT NULL,
+    home_team_id BIGINT NOT NULL,
+    away_team_id BIGINT NOT NULL,
+    home_team_score INTEGER,
+    away_team_score INTEGER,
+    season_id BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (season_id) REFERENCES seasons(season_id),
+    FOREIGN KEY (home_team_id) REFERENCES teams(team_id),
+    FOREIGN KEY (away_team_id) REFERENCES teams(team_id)
+);
+
+CREATE TABLE player_game_stats (
+    player_id BIGINT NOT NULL,
     game_id BIGINT NOT NULL,
     team_abbrev VARCHAR(10),
     home_road VARCHAR(5),
@@ -121,12 +159,11 @@ CREATE TABLE player_game_stats(
     shots INTEGER,
     shifts INTEGER,
     toi VARCHAR(10),
-    UNIQUE (player_id, game_id)
+    PRIMARY KEY (player_id, game_id)
 );
 
-CREATE TABLE goalie_game_stats(
-    id SERIAL PRIMARY KEY,
-    player_id INTEGER NOT NULL,
+CREATE TABLE goalie_game_stats (
+    player_id BIGINT NOT NULL,
     game_id BIGINT NOT NULL,
     team_abbrev VARCHAR(10),
     home_road VARCHAR(5),
@@ -134,31 +171,27 @@ CREATE TABLE goalie_game_stats(
     opponent_abbrev VARCHAR(10),
     goals_against INTEGER,
     saves INTEGER,
-    save_pct FLOAT,
+    save_pct DOUBLE PRECISION,
     shots_against INTEGER,
     decision VARCHAR(5),
     shutouts INTEGER,
     games_started INTEGER,
     penalty_minutes INTEGER,
     toi VARCHAR(10),
-    UNIQUE (player_id, game_id)
+    PRIMARY KEY (player_id, game_id)
 );
 
-CREATE TABLE games(
-    id SERIAL PRIMARY KEY,
-    game_date DATE NOT NULL,
-    home_team_id INTEGER NOT NULL,
-    away_team_id INTEGER NOT NULL,
-    home_team_score INTEGER,
-    away_team_score INTEGER,
-    season_id INTEGER NOT NULL,
-    FOREIGN KEY (home_team_id) REFERENCES teams(id),
-    FOREIGN KEY (away_team_id) REFERENCES teams(id),
-    FOREIGN KEY (season_id) REFERENCES seasons(id),
-    UNIQUE (game_date, home_team_id, away_team_id)
-);
+CREATE INDEX idx_player_game_stats_player_date
+    ON player_game_stats (player_id, game_date DESC);
 
-CREATE TABLE seasons(
-    id SERIAL PRIMARY KEY,
-    year VARCHAR(9) NOT NULL UNIQUE
-);
+CREATE INDEX idx_goalie_game_stats_player_date
+    ON goalie_game_stats (player_id, game_date DESC);
+
+CREATE INDEX idx_player_season_stats_season
+    ON player_season_stats (season_id DESC);
+
+CREATE INDEX idx_goalie_season_stats_season
+    ON goalie_season_stats (season_id DESC);
+
+CREATE INDEX idx_team_stats_season_points
+    ON team_stats (season_id, points DESC, goals_for DESC);
