@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { FaSearch, FaTh, FaList, FaCircle } from 'react-icons/fa'
 import { useNavigate } from 'react-router-dom'
 import Nav from '../components/nav'
 import PlayerCard from '../components/playerCard'
-import BubbleView from '../components/BubbleView'
+
+// d3-force is only needed for the bubble view; defer it until that mode is opened.
+const BubbleView = lazy(() => import('../components/BubbleView'))
 
 const API_BASE = import.meta.env.VITE_API_URL ?? ''
 
@@ -246,7 +248,9 @@ export default function Players() {
           ))}
         </div>
       ) : viewMode === 'bubble' ? (
-        <BubbleView players={players} />
+        <Suspense fallback={<p className="mt-4 text-gray-500">Loading bubble view…</p>}>
+          <BubbleView players={players} />
+        </Suspense>
       ) : (
         <div className="w-full mt-4 bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
