@@ -1,7 +1,8 @@
+import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import { getTeamLogoUrl } from '../utils/teamColors'
 
-export default function PlayerCard({ player }) {
+function PlayerCard({ player }) {
   const playerId = player.id ?? player['Player ID']
 
   return (
@@ -58,3 +59,5 @@ export default function PlayerCard({ player }) {
     </Link>
   )
 }
+
+export default memo(PlayerCard)

@@ -1,9 +1,11 @@
 import asyncio
 import time
 from typing import List, Dict, Any
-from .supa import supa
+from .supa import supa, fetch_all
 
 CACHE: List[Dict] = []
+# O(1) lookup index by player id, kept in sync with CACHE via set_cache().
+CACHE_BY_ID: Dict[Any, Dict] = {}
 REFRESH_SECONDS = 600  # 10m
 REFRESH_STATE: Dict[str, Any] = {
     "last_attempt_at": None,
@@ -61,13 +63,15 @@ def normalize(r: dict) -> dict:
 def set_cache( data: List[Dict] ):
     CACHE.clear()
     CACHE.extend(data)
+    CACHE_BY_ID.clear()
+    for player in CACHE:
+        CACHE_BY_ID[player.get("id")] = player
 
 async def refresh_once():
     REFRESH_STATE["last_attempt_at"] = time.time()
     client = supa()
     try:
-        resp = client.table("test_database").select(SELECT).execute()
-        data = resp.data or []
+        data = fetch_all(lambda: client.table("test_database").select(SELECT))
         print(f"Fetched {len(data)} players from database")
         set_cache([normalize(r) for r in data])
         print(len(CACHE), "players cached")

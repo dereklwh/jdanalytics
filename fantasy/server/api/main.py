@@ -1,13 +1,25 @@
-from fastapi import FastAPI, Query, HTTPException
-from fastapi.responses import Response
+from fastapi import FastAPI, Query, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 import asyncio
 from typing import List, Dict, Any
-from .cache import CACHE, refresher_loop, refresh_once, timed_get, timed_set, get_refresh_state
-from .supa import supa
+from .cache import (
+    CACHE,
+    CACHE_BY_ID,
+    refresher_loop,
+    refresh_once,
+    timed_get,
+    timed_set,
+    get_refresh_state,
+)
+from .supa import supa, fetch_all
 from .og_image import generate_player_card
 
 client = supa()
+
+# Data refreshes at most once per pipeline run (daily), so allow clients and the
+# CDN to cache list/standings responses for the same TTL as the in-memory cache.
+LIST_CACHE_CONTROL = "public, max-age=600, stale-while-revalidate=600"
 
 async def app_lifespan(app: FastAPI):
     try:
@@ -26,6 +38,8 @@ async def app_lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Fantasy Hockey Player API", lifespan=app_lifespan)
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,32 +66,26 @@ def health():
 
 
 def _build_career_players() -> List[Dict[str, Any]]:
-    cache_by_id = {p.get("id"): p for p in CACHE}
+    cache_by_id = CACHE_BY_ID
 
-    players_resp = (
-        client
-        .table("players")
-        .select("player_id, first_name, last_name, headshot, position")
-        .execute()
+    players_rows = fetch_all(
+        lambda: client.table("players").select(
+            "player_id, first_name, last_name, headshot, position"
+        )
     )
-    players_rows = players_resp.data or []
     players_by_id = {r.get("player_id"): r for r in players_rows}
 
-    skater_resp = (
-        client
-        .table("player_season_stats")
-        .select("player_id, season_id, team_abbrev, games_played, goals, assists, points")
-        .execute()
+    skater_rows = fetch_all(
+        lambda: client.table("player_season_stats").select(
+            "player_id, season_id, team_abbrev, games_played, goals, assists, points"
+        )
     )
-    skater_rows = skater_resp.data or []
 
-    goalie_resp = (
-        client
-        .table("goalie_season_stats")
-        .select("player_id, season_id, team_abbrev, games_played, goals, assists, points")
-        .execute()
+    goalie_rows = fetch_all(
+        lambda: client.table("goalie_season_stats").select(
+            "player_id, season_id, team_abbrev, games_played, goals, assists, points"
+        )
     )
-    goalie_rows = goalie_resp.data or []
 
     career: Dict[int, Dict[str, Any]] = {}
 
@@ -133,46 +141,44 @@ def _build_career_players() -> List[Dict[str, Any]]:
 
 
 def _build_season_players() -> List[Dict[str, Any]]:
-    cache_by_id = {p.get("id"): p for p in CACHE}
+    cache_by_id = CACHE_BY_ID
 
-    players_resp = (
-        client
-        .table("players")
-        .select("player_id, first_name, last_name, headshot, position")
-        .execute()
+    # Only the current (latest loaded) season is relevant to the season-scope list.
+    # Filtering server-side avoids pulling every player's full season history, which
+    # also keeps us well under PostgREST's 1000-row response cap.
+    season_id = _latest_loaded_season_id("player_season_stats", "goalie_season_stats")
+    if not season_id:
+        return CACHE
+
+    players_rows = fetch_all(
+        lambda: client.table("players").select(
+            "player_id, first_name, last_name, headshot, position"
+        )
     )
-    players_rows = players_resp.data or []
     players_by_id = {r.get("player_id"): r for r in players_rows}
 
-    skater_resp = (
-        client
-        .table("player_season_stats")
+    skater_rows = fetch_all(
+        lambda: client.table("player_season_stats")
         .select("player_id, season_id, team_abbrev, games_played, goals, assists, points, position_code")
-        .execute()
+        .eq("season_id", season_id)
     )
-    skater_rows = skater_resp.data or []
 
-    goalie_resp = (
-        client
-        .table("goalie_season_stats")
+    goalie_rows = fetch_all(
+        lambda: client.table("goalie_season_stats")
         .select("player_id, season_id, team_abbrev, games_played, goals, assists, points")
-        .execute()
+        .eq("season_id", season_id)
     )
-    goalie_rows = goalie_resp.data or []
 
     # Track which player_ids are goalies so we can assign position="G"
     goalie_ids: set = {row.get("player_id") for row in goalie_rows if row.get("player_id") is not None}
 
+    # (player_id, season_id) is unique, so one row per player for this season.
     latest_by_player: Dict[int, Dict[str, Any]] = {}
     for row in skater_rows + goalie_rows:
         player_id = row.get("player_id")
         if player_id is None:
             continue
-        season_id = int(_num(row.get("season_id")))
-        prev = latest_by_player.get(player_id)
-        prev_season = int(_num(prev.get("season_id"))) if prev else -1
-        if season_id >= prev_season:
-            latest_by_player[player_id] = row
+        latest_by_player[player_id] = row
 
     if not latest_by_player:
         return CACHE
@@ -204,7 +210,8 @@ def _build_season_players() -> List[Dict[str, Any]]:
 
 
 @app.get("/players")
-def players(q: str = Query(default=""),
+def players(response: Response,
+            q: str = Query(default=""),
             page: int = Query(default=1, ge=1),
             limit: int = Query(default=20, ge=1),
             position: str = Query(default=""),
@@ -213,6 +220,7 @@ def players(q: str = Query(default=""),
             sort_order: str = Query(default="desc"),
             stats_scope: str = Query(default="season", pattern="^(season|career)$")
             ) -> Dict[str, Any]:
+    response.headers["Cache-Control"] = LIST_CACHE_CONTROL
     # Keep career behavior consistent with legacy app data in CACHE (test_database).
     # Season scope is sourced from the new season-stat tables.
     if stats_scope == "career":
@@ -265,9 +273,9 @@ def players(q: str = Query(default=""),
 @app.get("/players/{player_id}")
 def get_player(player_id: int) -> Dict[str, Any]:
     """Return a single player by ID."""
-    for player in CACHE:
-        if player.get("id") == player_id:
-            return {"player": player}
+    player = CACHE_BY_ID.get(player_id)
+    if player is not None:
+        return {"player": player}
     raise HTTPException(status_code=404, detail="Player not found")
 
 
@@ -484,7 +492,7 @@ def player_detail(player_id: int) -> Dict[str, Any]:
     rows = player_resp.data or []
     player_row = rows[0] if rows else None
 
-    cache_row = next((p for p in CACHE if p.get("id") == player_id), None)
+    cache_row = CACHE_BY_ID.get(player_id)
     if not player_row and not cache_row:
         raise HTTPException(status_code=404, detail="Player not found")
 
@@ -554,8 +562,9 @@ def player_og_image(player_id: int):
 
 
 @app.get("/teams")
-def teams() -> Dict[str, Any]:
+def teams(response: Response) -> Dict[str, Any]:
     """Return unique team abbreviations from both career and season stats data."""
+    response.headers["Cache-Control"] = LIST_CACHE_CONTROL
     cached = timed_get("teams")
     if cached is not None:
         return cached
@@ -567,8 +576,10 @@ def teams() -> Dict[str, Any]:
             team_set.add(abbr)
     if season_id:
         for table in ("player_season_stats", "goalie_season_stats"):
-            resp = client.table(table).select("team_abbrev").eq("season_id", season_id).execute()
-            for row in (resp.data or []):
+            rows = fetch_all(
+                lambda table=table: client.table(table).select("team_abbrev").eq("season_id", season_id)
+            )
+            for row in rows:
                 abbr = row.get("team_abbrev")
                 if abbr:
                     team_set.add(abbr)
@@ -577,7 +588,8 @@ def teams() -> Dict[str, Any]:
     return result
 
 @app.get("/standings")
-def standings() -> Dict[str, Any]:
+def standings(response: Response) -> Dict[str, Any]:
+    response.headers["Cache-Control"] = LIST_CACHE_CONTROL
     cached = timed_get("standings")
     if cached is not None:
         return cached
